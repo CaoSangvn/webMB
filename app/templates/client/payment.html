@@ -1,126 +1,96 @@
 <!DOCTYPE html>
 <html lang="vi">
-  <head>
+<head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Thanh toán Đặt chỗ - SangAir</title>
+    <title>Xác nhận và Thanh toán - SangAir</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/payment.css') }}">
-  </head>
-  <body>
-    <header>
-      <div class="container header-container">
+</head>
+<body>
+<header>
+    <div class="container header-container">
         <div class="logo">
-          <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+            <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
         </div>
-      </div>
-    </header>
+        <nav>
+            <ul class="menu">
+                <li><a href="{{ url_for('client_bp.my_flights_page') }}">CHUYẾN BAY CỦA TÔI</a></li>
+                <li><a href="{{ url_for('client_bp.online_checkin_page') }}">ONLINE CHECK-IN</a></li>
+                <li><a href="{{ url_for('client_bp.e_menu_page') }}">E-MENU</a></li>
+                <li><a href="{{ url_for('client_bp.flight_services_page') }}">DỊCH VỤ CHUYẾN BAY</a></li>
+            </ul>
+        </nav>
+        <div class="auth-links">
+            {% if current_user_name %}
+                <span class="welcome-message">Chào, {{ current_user_name }}!</span>
+                <a href="{{ url_for('client_bp.logout_user') }}">Đăng xuất</a>
+            {% else %}
+                <a href="{{ url_for('client_bp.register_page') }}">Đăng ký</a>
+                <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
+            {% endif %}
+        </div>
+    </div>
+</header>
 
-    <main class="container payment-page-container">
-      <h1>Xác nhận và Thanh toán</h1>
+<main class="container payment-page-container">
+    <h1>Xác nhận và Thanh toán</h1>
 
-      <div class="payment-layout">
-        <!-- Cột 1: Form thanh toán -->
-        <div id="paymentFormArea" class="payment-form-column">
-          <form id="actualPaymentForm">
-            <h3>Thông tin người liên hệ</h3>
-            <div class="form-group">
-              <label for="payment-passenger-name">Họ và tên *</label>
-              <input type="text" id="payment-passenger-name" name="contactFullName" required>
-              <span class="validation-error-message" id="payment-passenger-name-error"></span>
+    <div class="payment-layout">
+        {% if booking %}
+        <div class="payment-summary-card">
+            <div class="booking-summary-details">
+                <div class="summary-item">
+                    <span>Mã đặt chỗ:</span>
+                    <strong>{{ booking.pnr }}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Hành trình:</span>
+                    <strong>{{ booking.departure_iata }} → {{ booking.arrival_iata }}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Tổng tiền vé gốc:</span>
+                    <strong>{{ "{:,.0f}".format(booking.base_fare) }} đ</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Phí dịch vụ cộng thêm:</span>
+                    <strong>{{ "{:,.0f}".format(booking.ancillary_services_total) }} đ</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Giảm giá:</span>
+                    <strong>- {{ "{:,.0f}".format(booking.discount_applied) }} đ</strong>
+                </div>
+                <div class="total-amount-final">
+                     <div class="summary-item">
+                        <span>SỐ TIỀN THANH TOÁN CUỐI CÙNG:</span>
+                        <strong>{{ "{:,.0f}".format(booking.total_amount) }} đ</strong>
+                    </div>
+                </div>
             </div>
-            <div class="form-group">
-              <label for="payment-passenger-email">Email *</label>
-              <input type="email" id="payment-passenger-email" name="contactEmail" required>
-              <span class="validation-error-message" id="payment-passenger-email-error"></span>
+
+            <div class="payment-methods">
+                <h3 style="margin-top: 20px;">Xác nhận thanh toán</h3>
+                <button id="confirmPaymentBtn" class="btn-pay">
+                    Thanh toán ngay (Mô phỏng)
+                </button>
             </div>
-            <div class="form-group">
-              <label for="payment-passenger-phone">Số điện thoại *</label>
-              <input type="tel" id="payment-passenger-phone" name="contactPhone" required>
-              <span class="validation-error-message" id="payment-passenger-phone-error"></span>
-            </div>
+        </div>
+        
+        {% else %}
+        <div class="payment-summary-card">
+             <h3 style="color: #c62828;">Không tìm thấy giao dịch</h3>
+             <p>Không có thông tin đặt vé hợp lệ đang chờ thanh toán. Vui lòng thử lại từ đầu.</p>
+             <a href="{{ url_for('client_bp.home_page') }}" class="btn-confirm-payment" style="text-decoration: none; text-align: center; line-height: 1.5;">Về Trang Chủ</a>
+         </div>
+        {% endif %}
+    </div>
+</main>
 
-            <h3>Phương thức thanh toán</h3>
-            <div class="form-group">
-              <label for="payment-method-select">Chọn phương thức *</label>
-              <select id="payment-method-select" name="paymentMethod" required>
-                <option value="credit-card">Thẻ tín dụng</option>
-                <option value="momo">MoMo</option>
-                <option value="zalopay">ZaloPay</option>
-                <option value="bank-transfer">Chuyển khoản ngân hàng</option>
-              </select>
-            </div>
+<script>
+    // Truyền booking_id từ template vào JavaScript một cách an toàn
+    const bookingToPay = {{ booking.booking_id|tojson if booking else 'null' }};
+</script>
+<script src="{{ url_for('static', filename='js/payment_script.js') }}"></script>
 
-            <button type="submit" class="btn-confirm-payment">Xác nhận và Đặt vé</button>
-          </form>
-        </div>
-
-        <!-- Cột 2: Bảng tóm tắt đặt chỗ -->
-        <div class="booking-details-column">
-          <div id="bookingSummary" class="booking-summary">
-            <h3>Tóm tắt Đặt chỗ</h3>
-            <p><strong>Chuyến bay ID:</strong> <span id="summaryFlightId">–</span></p>
-            <p><strong>Hạng ghế:</strong> <span id="summarySeatClass">–</span></p>
-            <p><strong>Số lượng hành khách:</strong> <span id="summaryNumPax">–</span></p>
-            <hr>
-            <p style="font-weight: bold; font-size: 1.1em;">
-              Tổng tiền (dự kiến): 
-              <span id="summaryTotalAmountDisplay" class="total-amount">–</span>
-            </p>
-          </div>
-
-          <div id="paymentResult" class="payment-result" style="display:none;"></div>
-        </div>
-      </div>
-    </main>
-
-    <footer class="footer">
-      <div class="container footer-container">
-        <div class="footer-column">
-          <h4>Về SangAir</h4>
-          <ul>
-            <li><a href="#">Giới thiệu công ty</a></li>
-            <li><a href="#">Tin tức</a></li>
-            <li><a href="#">Tuyển dụng</a></li>
-            <li><a href="#">Điều khoản sử dụng</a></li>
-          </ul>
-        </div>
-        <div class="footer-column">
-          <h4>Hỗ trợ khách hàng</h4>
-          <ul>
-            <li><a href="#">Hướng dẫn đặt vé</a></li>
-            <li><a href="#">Chính sách hoàn/hủy</a></li>
-            <li><a href="#">Chính sách hành lý</a></li>
-            <li><a href="#">Câu hỏi thường gặp</a></li>
-          </ul>
-        </div>
-        <div class="footer-column">
-          <h4>Liên hệ</h4>
-          <p>Hotline: 1900 1234</p>
-          <p>Email: support@sangair.vn</p>
-          <p>Địa chỉ: 123 Đường Bay, Q. Hàng Không, TP.HCM</p>
-        </div>
-        <div class="footer-column">
-          <h4>Tải ứng dụng</h4>
-          <div class="app-icons">
-            <a href="#"><img src="https://developer.apple.com/assets/elements/icons/app-store/app-store-128x128_2x.png" alt="App Store" style="width: 120px; margin-right: 10px;"></a>
-            <a href="#"><img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png" alt="Google Play" style="width: 120px;"></a>
-          </div>
-        </div>
-        <div class="footer-column">
-          <h4>Kết nối với chúng tôi</h4>
-          <div class="social-icons">
-            <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/5968/5968764.png" alt="Facebook"></a>
-            <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/2111/2111463.png" alt="Instagram"></a>
-            <a href="#"><img src="https://cdn-icons-png.flaticon.com/512/1384/1384060.png" alt="YouTube"></a>
-          </div>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>© 2025 SangAir. Bản quyền đã được bảo hộ.</p>
-      </div>
-    </footer>
-
-    <script src="{{ url_for('static', filename='js/payment_script.js') }}"></script>
-  </body>
+</body>
 </html>

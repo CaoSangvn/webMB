@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Xác nhận Thanh toán - SangAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/payment.css') }}">
+    <style>
+        .payment-summary-card {
+            max-width: 600px;
+            margin: 40px auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .payment-summary-card h1 {
+            color: #DA251D;
+            margin-bottom: 20px;
+        }
+        .summary-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+            text-align: left;
+        }
+        .summary-item strong {
+            color: #333;
+        }
+        .total-amount-final {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid #DA251D;
+        }
+        .total-amount-final .summary-item strong {
+            font-size: 1.5rem;
+            color: #DA251D;
+        }
+        .payment-methods {
+            margin-top: 30px;
+        }
+        .payment-methods h3 {
+            margin-bottom: 15px;
+            color: #555;
+            font-weight: 500;
+        }
+        .btn-pay {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 1.1em;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+        }
+        .btn-pay:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+<body>
+<header>
+    <div class="container header-container">
+        <div class="logo">
+            <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+        </div>
+    </div>
+</header>
+
+<main class="container">
+    <div class="payment-summary-card">
+        <h1>Xác nhận Thanh toán</h1>
+        
+        {% if booking %}
+            <div class="booking-summary-details">
+                <div class="summary-item">
+                    <span>Mã đặt chỗ:</span>
+                    <strong>{{ booking.pnr }}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Hành trình:</span>
+                    <strong>{{ booking.departure_iata }} → {{ booking.arrival_iata }}</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Tổng tiền vé gốc:</span>
+                    <strong>{{ "{:,.0f}".format(booking.base_fare) }} đ</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Phí dịch vụ cộng thêm:</span>
+                    <strong>{{ "{:,.0f}".format(booking.ancillary_services_total) }} đ</strong>
+                </div>
+                <div class="summary-item">
+                    <span>Giảm giá:</span>
+                    <strong>- {{ "{:,.0f}".format(booking.discount_applied) }} đ</strong>
+                </div>
+                <div class="total-amount-final">
+                     <div class="summary-item">
+                        <span>SỐ TIỀN CẦN THANH TOÁN:</span>
+                        <strong>{{ "{:,.0f}".format(booking.total_amount) }} đ</strong>
+                    </div>
+                </div>
+            </div>
+
+            <div class="payment-methods">
+                <h3>Chọn phương thức thanh toán</h3>
+                <button id="confirmPaymentBtn" class="btn-pay">
+                    Xác nhận thanh toán (Mô phỏng)
+                </button>
+            </div>
+        {% else %}
+            <p class="error-message">Không tìm thấy thông tin đặt chỗ để thanh toán.</p>
+            <a href="{{ url_for('client_bp.my_flights_page') }}">Quay lại Chuyến bay của tôi</a>
+        {% endif %}
+    </div>
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const confirmBtn = document.getElementById('confirmPaymentBtn');
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', async function() {
+                this.textContent = 'Đang xử lý...';
+                this.disabled = true;
+
+                try {
+                    const bookingId = {{ booking.booking_id if booking else 'null' }};
+                    if (!bookingId) {
+                        alert("Lỗi: Không tìm thấy mã đặt chỗ.");
+                        return;
+                    }
+                    
+                    const response = await fetch(`/api/payment/confirm`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ booking_id: bookingId })
+                    });
+                    
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        alert(result.message || "Thanh toán thành công!");
+                        window.location.href = result.redirect_url || "{{ url_for('client_bp.my_flights_page') }}";
+                    } else {
+                        alert("Lỗi: " + (result.message || "Thanh toán thất bại."));
+                        this.textContent = 'Xác nhận thanh toán (Mô phỏng)';
+                        this.disabled = false;
+                    }
+                } catch (error) {
+                    alert("Lỗi kết nối. Vui lòng thử lại.");
+                    this.textContent = 'Xác nhận thanh toán (Mô phỏng)';
+                    this.disabled = false;
+                }
+            });
+        }
+    });
+</script>
+
+</body>
+</html>

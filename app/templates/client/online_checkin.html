@@ -31,12 +31,6 @@
               <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
           {% endif %}
       </div>
-      <div class="language-select">
-        <select>
-          <option>Tiếng Việt</option>
-          <option>English</option>
-        </select>
-      </div>
     </div>
   </header>
 
@@ -47,65 +41,39 @@
       </div>
 
       <div class="checkin-progress-bar-vj">
-        <div class="progress-step-vj active" data-step="1">
-          <div class="step-number-vj">1</div>
-          <div class="step-label-vj">Thông tin <br>Đặt chỗ</div>
+        <div class="progress-step-vj" data-step="1">
+          <div class="step-number-vj">1</div><div class="step-label-vj">Thông tin</div>
         </div>
         <div class="progress-connector-vj"></div>
         <div class="progress-step-vj" data-step="2">
-          <div class="step-number-vj">2</div>
-          <div class="step-label-vj">Chọn Hành khách <br>& Chuyến bay</div>
+          <div class="step-number-vj">2</div><div class="step-label-vj">Chọn Hành khách</div>
         </div>
         <div class="progress-connector-vj"></div>
         <div class="progress-step-vj" data-step="3">
-          <div class="step-number-vj">3</div>
-          <div class="step-label-vj">Hàng hóa <br>Nguy hiểm</div>
+          <div class="step-number-vj">3</div><div class="step-label-vj">Hàng hóa Nguy hiểm</div>
         </div>
         <div class="progress-connector-vj"></div>
         <div class="progress-step-vj" data-step="4">
-          <div class="step-number-vj">4</div>
-          <div class="step-label-vj">Chọn ghế <br>(Tùy chọn)</div>
-        </div>
-        <div class="progress-connector-vj"></div>
-        <div class="progress-step-vj" data-step="5">
-          <div class="step-number-vj">5</div>
-          <div class="step-label-vj">Hoàn tất & <br>Thẻ lên tàu</div>
+          <div class="step-number-vj">4</div><div class="step-label-vj">Hoàn tất</div>
         </div>
       </div>
 
-      <div id="checkin-step-lookup" class="checkin-step-vj active">
+      <div id="checkin-step-lookup" class="checkin-step-vj">
         <div class="step-content-vj">
           <h2>Bước 1: Nhập thông tin đặt chỗ</h2>
           <p>Vui lòng nhập Mã đặt chỗ và Họ của một trong các hành khách để bắt đầu.</p>
-          <form id="checkin-lookup-form" action="{{ url_for('client_bp.online_checkin_page') }}" method="POST" class="styled-form-vj">
+          <form id="checkin-lookup-form" method="POST" class="styled-form-vj">
             <div class="input-group-vj">
               <label for="checkin-booking-code">Mã đặt chỗ (PNR) *</label>
-              <input type="text" id="checkin-booking-code" name="booking_code" placeholder="VD: PNR123" required />
+              <input type="text" id="checkin-booking-code" name="booking_code" required />
             </div>
             <div class="input-group-vj">
               <label for="checkin-last-name">Họ (như trên vé) *</label>
-              <input type="text" id="checkin-last-name" name="last_name" placeholder="VD: NGUYEN" required />
+              <input type="text" id="checkin-last-name" name="last_name" required />
             </div>
             <button type="submit" class="action-btn-vj primary-btn-vj large-btn-vj">Tìm đặt chỗ</button>
-            <div id="lookup-error-message" class="error-message-vj">
-              {% with messages = get_flashed_messages() %}
-                {% if messages %}
-                  {% for message in messages %}
-                    <p>{{ message }}</p>
-                  {% endfor %}
-                {% endif %}
-              {% endwith %}
-            </div>
+            <div id="lookup-error-message" class="error-message-vj" style="display:none;"></div>
           </form>
-        </div>
-        <div class="checkin-static-info-vj">
-          <h3>Thông tin quan trọng</h3>
-          <p>Quý khách có thể làm thủ tục trực tuyến từ <strong>24 tiếng đến 1 tiếng</strong> trước giờ khởi hành dự kiến.</p>
-          <ul>
-            <li>Đảm bảo thông tin hành khách chính xác theo giấy tờ tùy thân.</li>
-            <li>Chuẩn bị sẵn giấy tờ tùy thân hợp lệ khi ra sân bay.</li>
-            <li>Nếu có hành lý ký gửi, vui lòng đến quầy thủ tục hành lý trước giờ đóng quầy.</li>
-          </ul>
         </div>
       </div>
 
@@ -113,10 +81,10 @@
         <div class="step-content-vj">
           <h2>Bước 2: Chọn chuyến bay và hành khách</h2>
           <div id="flights-for-checkin-list" class="content-box-vj"></div>
-          <form id="passengers-selection-form" action="{{ url_for('client_bp.select_passengers') }}" method="POST" class="styled-form-vj">
+          <form id="passengers-selection-form" method="POST" class="styled-form-vj">
             <h4>Chọn hành khách để làm thủ tục:</h4>
             <div id="passengers-for-checkin-list" class="content-box-vj passenger-list-vj"></div>
-            <div id="passenger-selection-error" class="error-message-vj" style="display:none;">Vui lòng chọn ít nhất một hành khách đủ điều kiện.</div>
+            <div id="passenger-selection-error" class="error-message-vj" style="display:none;"></div>
             <div class="step-navigation-vj">
               <button type="button" class="action-btn-vj secondary-btn-vj" id="btn-back-to-lookup">Quay lại</button>
               <button type="submit" class="action-btn-vj primary-btn-vj">Tiếp tục <i class="fas fa-arrow-right"></i></button>
@@ -129,39 +97,19 @@
         <div class="step-content-vj">
           <h2>Bước 3: Khai báo hàng hóa nguy hiểm</h2>
           <div class="dangerous-goods-content-vj content-box-vj">
-            <p>Vì lý do an toàn, vui lòng xác nhận bạn không mang theo bất kỳ vật phẩm nào trong danh mục bị cấm hoặc hạn chế theo quy định hàng không.</p>
-            <ul>
-              <li>Chất nổ, vũ khí, vật liệu dễ cháy...</li>
-              <li>Pin lithium không đúng quy cách...</li>
-              <li><em>(Xem chi tiết danh mục tại website của chúng tôi)</em></li>
-            </ul>
+            <p>Vì lý do an toàn, vui lòng xác nhận bạn không mang theo bất kỳ vật phẩm nào trong danh mục bị cấm hoặc hạn chế.</p>
           </div>
-          <form id="dangerous-goods-form" action="{{ url_for('client_bp.confirm_dangerous_goods') }}" method="POST" class="styled-form-vj">
+          <form id="dangerous-goods-form" method="POST" class="styled-form-vj">
             <div class="input-group-vj checkbox-group-vj">
               <input type="checkbox" id="confirm-dangerous-goods" name="confirm_dangerous_goods" required>
-              <label for="confirm-dangerous-goods">Tôi xác nhận đã đọc, hiểu và tuân thủ các quy định về hàng hóa nguy hiểm khi làm thủ tục cho chuyến bay này.</label>
+              <label for="confirm-dangerous-goods">Tôi xác nhận đã đọc, hiểu và tuân thủ các quy định về hàng hóa nguy hiểm.</label>
             </div>
-            <div id="dangerous-goods-error" class="error-message-vj" style="display:none;">Bạn phải đồng ý với điều khoản này để tiếp tục.</div>
+            <div id="dangerous-goods-error" class="error-message-vj" style="display:none;"></div>
             <div class="step-navigation-vj">
               <button type="button" class="action-btn-vj secondary-btn-vj" id="btn-back-to-passengers"><i class="fas fa-arrow-left"></i> Quay lại</button>
-              <button type="submit" class="action-btn-vj primary-btn-vj">Tiếp tục <i class="fas fa-arrow-right"></i></button>
+              <button type="submit" class="action-btn-vj primary-btn-vj">Hoàn tất thủ tục <i class="fas fa-check-circle"></i></button>
             </div>
           </form>
-        </div>
-      </div>
-
-      <div id="checkin-step-seat-selection" class="checkin-step-vj" style="display: none;">
-        <div class="step-content-vj">
-          <h2>Bước 4: Chọn chỗ ngồi (Tùy chọn)</h2>
-          <div id="seat-selection-info-vj" class="content-box-vj">
-            <p>Chỗ ngồi của bạn sẽ được tự động chỉ định dựa trên tình trạng chuyến bay và hạng vé. Một số chuyến bay hoặc hạng vé có thể cho phép chọn chỗ ưu tiên (có tính phí).</p>
-            <p><strong>Thông tin hành khách và chỗ ngồi dự kiến:</strong></p>
-            <ul id="passenger-seat-display-list"></ul>
-          </div>
-          <div class="step-navigation-vj">
-            <button type="button" class="action-btn-vj secondary-btn-vj" id="btn-back-to-dangerous-goods"><i class="fas fa-arrow-left"></i> Quay lại</button>
-            <button type="button" class="action-btn-vj primary-btn-vj" id="btn-confirm-seats-checkin">Hoàn tất thủ tục <i class="fas fa-check-circle"></i></button>
-          </div>
         </div>
       </div>
 
@@ -170,20 +118,16 @@
           <div class="confirmation-icon-vj"><i class="fas fa-check-circle"></i></div>
           <h2>Làm thủ tục thành công!</h2>
           <div class="confirmation-message-vj">
-            <p>Cảm ơn Quý khách đã hoàn tất làm thủ tục trực tuyến cho chuyến bay với SangAir.</p>
-            <p>Vui lòng kiểm tra email hoặc tải thẻ lên máy bay của bạn dưới đây.</p>
+            <p>Cảm ơn Quý khách đã hoàn tất làm thủ tục trực tuyến. Dưới đây là thông tin thẻ lên máy bay của bạn.</p>
           </div>
           <div id="boarding-pass-summary-list" class="content-box-vj"></div>
           <div class="boarding-pass-actions-vj">
-            <button type="button" class="action-btn-vj primary-btn-vj"><i class="fas fa-download"></i> Tải Thẻ lên máy bay (PDF)</button>
-            <button type="button" class="action-btn-vj"><i class="fas fa-envelope"></i> Gửi qua Email</button>
             <a href="{{ url_for('client_bp.home_page') }}" class="action-btn-vj secondary-btn-vj">Về trang chủ</a>
           </div>
         </div>
       </div>
     </div>
   </main>
-
   <script src="{{ url_for('static', filename='js/online_checkin_script.js') }}"></script>
 </body>
 </html>

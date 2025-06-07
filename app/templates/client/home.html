@@ -59,7 +59,7 @@
       <div class="tab-content active" id="flight">
         <h1>ĐẶT VÉ MÁY BAY</h1>
         <p>Nhập thông tin để tìm chuyến bay phù hợp với bạn.</p>
-        <form id="booking-form" action="{{ url_for('client_bp.search_flights') }}" method="POST">
+        <form id="booking-form" method="POST">
           <div class="trip-type">
             <label>
               <input type="radio" name="trip" value="round" checked />
@@ -148,47 +148,15 @@
         <div id="flight-results" class="flight-results" style="display: none;">
           <h2>Kết quả tìm kiếm chuyến bay</h2>
           <div class="flight-options" id="flight-options-container">
-            <!-- Nội dung sẽ được thêm vào bằng JavaScript -->
-          </div>
+            </div>
         </div>
 
-        <div id="booking-modal" class="modal" style="display: none;">
-          <div class="modal-content">
-            <span id="close-modal" class="close">×</span>
-            <h2>Hoàn tất đặt vé</h2>
-            <form id="booking-details-form" action="{{ url_for('client_bp.book_flight', flight_id=flight_id) }}" method="POST">
-              <div class="input-group">
-                <label for="passenger-name">Họ và tên *</label>
-                <input type="text" id="passenger-name" name="full_name" placeholder="VD: Nguyễn Văn A" required />
-              </div>
-              <div class="input-group">
-                <label for="passenger-email">Email *</label>
-                <input type="email" id="passenger-email" name="email" placeholder="VD: email@example.com" required />
-              </div>
-              <div class="input-group">
-                <label for="passenger-phone">Số điện thoại *</label>
-                <input type="tel" id="passenger-phone" name="phone" placeholder="VD: 0901234567" required />
-              </div>
-              <div class="input-group">
-                <label for="payment-method">Phương thức thanh toán *</label>
-                <select id="payment-method" name="payment_method">
-                  <option value="credit-card">Thẻ tín dụng</option>
-                  <option value="momo">MoMo</option>
-                  <option value="zalopay">ZaloPay</option>
-                </select>
-              </div>
-              <input type="hidden" name="seat_class" id="hidden-seat-class" value="{{ seat_class }}">
-              <input type="hidden" name="total_passengers" id="hidden-total-passengers" value="{{ total_passengers }}">
-              <button type="submit" class="search-btn">Xác nhận và thanh toán</button>
-            </form>
-          </div>
         </div>
-      </div>
 
       <div class="tab-content" id="luggage">
         <h1>HÀNH LÝ & CHỔ NGỒI</h1>
         <p>Tùy chỉnh hành lý và chọn chỗ ngồi ưa thích cho chuyến bay của bạn.</p>
-        <form id="luggage-seating-form" action="{{ url_for('client_bp.book_flight', flight_id=flight_id) }}" method="POST">
+        <form id="luggage-seating-form" method="POST">
           <fieldset>
             <legend>Lựa chọn hành lý ký gửi</legend>
             <div class="input-group">

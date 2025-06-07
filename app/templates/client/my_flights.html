@@ -80,7 +80,7 @@
 
     <div id="change-flight-form-container-vj" class="form-container-vj" style="display: none;">
         <h3>Thay đổi chuyến bay</h3>
-        <form id="change-flight-submit-form-vj" action="{{ url_for('client_bp.change_flight') }}" method="POST">
+        <form id="change-flight-submit-form-vj" method="POST">
             <p><strong>Chuyến bay hiện tại:</strong> <span id="current-flight-info-for-change-vj">SGN → HAN, 08:00 28/07/2025</span></p>
             <input type="hidden" name="booking_id" id="change-flight-booking-id" value="">
             <div class="input-group-vj">
@@ -106,48 +106,17 @@
           <span id="close-service-modal-btn-vj" class="close-vj">×</span>
           <h2>Thêm Dịch Vụ Cho Chuyến Bay</h2>
           <p class="modal-pnr-info-vj">Mã đặt chỗ: <strong id="modal-service-pnr-display-vj">SANG123</strong></p>
-          <form id="add-service-form-vj" action="{{ url_for('client_bp.add_service') }}" method="POST">
+          <form id="add-service-form-vj" method="POST">
               <input type="hidden" name="booking_id" id="service-booking-id" value="">
-              <fieldset>
-                  <legend>Hành lý ký gửi</legend>
-                  <div class="input-group-vj">
-                      <label for="modal-baggage-option">Gói hành lý hiện tại: <strong id="current-baggage-display-vj">20kg</strong></label>
-                      <select id="modal-baggage-option-vj" name="baggage_option">
-                          <option value="current" data-price="0" data-current="true">Giữ nguyên gói hiện tại</option>
-                          <option value="none_bag" data-price="0" data-is-removal="true">Không hành lý ký gửi</option>
-                          <option value="15kg" data-price="150000">15kg (Tổng cộng)</option>
-                          <option value="20kg" data-price="200000">20kg (Tổng cộng)</option>
-                          <option value="25kg" data-price="280000">25kg (Tổng cộng)</option>
-                      </select>
-                      <p class="service-fee-display-vj">Chi phí thay đổi hành lý: <span id="modal-baggage-fee-display-vj">0 VND</span></p>
-                  </div>
-              </fieldset>
-              <fieldset>
-                  <legend>Chọn chỗ ngồi</legend>
-                  <div class="input-group-vj">
-                      <label for="modal-seat-preference">Chỗ ngồi hiện tại: <strong id="current-seat-display-vj">12A (Cửa sổ)</strong></label>
-                      <select id="modal-seat-preference-vj" name="seat_preference">
-                          <option value="current" data-price="0" data-current="true">Giữ nguyên chỗ ngồi</option>
-                          <option value="any_standard" data-price="0">Tiêu chuẩn (Ngẫu nhiên - Miễn phí)</option>
-                          <option value="window" data-price="70000">Chỗ gần cửa sổ (+70,000 VND)</option>
-                          <option value="aisle" data-price="70000">Chỗ gần lối đi (+70,000 VND)</option>
-                          <option value="extra_legroom" data-price="150000">Chỗ duỗi chân rộng (+150,000 VND)</option>
-                      </select>
-                      <p class="service-fee-display-vj">Chi phí thay đổi chỗ ngồi: <span id="modal-seat-fee-display-vj">0 VND</span></p>
-                  </div>
-              </fieldset>
+              
               <fieldset>
                   <legend>Suất ăn trên máy bay</legend>
-                  <div class="input-group-vj">
-                      <label for="modal-meal-option">Suất ăn hiện tại: <strong id="current-meal-display-vj">Cơm gà</strong></label>
-                      <select id="modal-meal-option-vj" name="meal_option">
-                          <option value="current" data-price="0" data-current="true">Giữ nguyên suất ăn</option>
-                          <option value="none_meal" data-price="0" data-is-removal="true">Không chọn suất ăn</option>
-                          <option value="meal_veg" data-price="100000">Suất ăn chay (+100,000 VND)</option>
-                          <option value="meal_seafood" data-price="150000">Suất ăn hải sản (+150,000 VND)</option>
-                      </select>
-                      <p class="service-fee-display-vj">Chi phí thay đổi suất ăn: <span id="modal-meal-fee-display-vj">0 VND</span></p>
+                  <div id="modal-meal-options-container" class="meal-options-grid">
+                      <p>Đang tải thực đơn...</p>
                   </div>
+                  <p class="service-fee-display-vj">
+                      Chi phí suất ăn thêm: <span id="modal-meal-fee-display-vj">0 VND</span>
+                  </p>
               </fieldset>
               <div class="total-modal-service-fee-vj">
                   <h3>Tổng chi phí dịch vụ mới (thay đổi): <span id="modal-total-service-cost-display-vj">0 VND</span></h3>

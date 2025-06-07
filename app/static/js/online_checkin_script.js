@@ -1,68 +1,31 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Online Check-in Script (Professional) Loaded!");
+    console.log("Online Check-in Script Loaded - API Integrated!");
 
-    // DOM Elements for Steps
     const steps = {
         lookup: document.getElementById('checkin-step-lookup'),
         flightsPassengers: document.getElementById('checkin-step-flights-passengers'),
         dangerousGoods: document.getElementById('checkin-step-dangerous-goods'),
-        seatSelection: document.getElementById('checkin-step-seat-selection'),
         confirmation: document.getElementById('checkin-step-confirmation')
     };
     const progressSteps = document.querySelectorAll('.checkin-progress-bar-vj .progress-step-vj');
-    const staticInfoDiv = document.querySelector(".checkin-static-info-vj");
-
-
-    // DOM Elements for Step 1: Lookup
+    
     const lookupForm = document.getElementById('checkin-lookup-form');
-    const bookingCodeInput = document.getElementById('checkin-booking-code');
-    const lastNameInput = document.getElementById('checkin-last-name');
+    const lookupButton = lookupForm ? lookupForm.querySelector('button[type="submit"]') : null;
     const lookupErrorMsg = document.getElementById('lookup-error-message');
-
-    // DOM Elements for Step 2: Flights & Passengers
+    
     const flightsListDiv = document.getElementById('flights-for-checkin-list');
     const passengersListDiv = document.getElementById('passengers-for-checkin-list');
     const passengersSelectionForm = document.getElementById('passengers-selection-form');
     const passengerSelectionError = document.getElementById('passenger-selection-error');
 
-    // DOM Elements for Step 3: Dangerous Goods
     const dangerousGoodsForm = document.getElementById('dangerous-goods-form');
     const confirmDGBCheckbox = document.getElementById('confirm-dangerous-goods');
     const dangerousGoodsError = document.getElementById('dangerous-goods-error');
     
-    // DOM Elements for Step 4: Seat Selection
-    const passengerSeatDisplayList = document.getElementById('passenger-seat-display-list');
-
-    // DOM Elements for Step 5: Confirmation
     const boardingPassSummaryList = document.getElementById('boarding-pass-summary-list');
-
-    // Navigation Buttons
-    const btnBackToLookup = document.getElementById('btn-back-to-lookup');
-    const btnBackToPassengers = document.getElementById('btn-back-to-passengers');
-    const btnBackToDangerousGoods = document.getElementById('btn-back-to-dangerous-goods');
-    const btnConfirmSeatsCheckin = document.getElementById('btn-confirm-seats-checkin');
-
-
-    let currentBookingData = null; // To store the fetched booking details
-    let selectedPassengers = [];   // To store selected passenger IDs for check-in
-
-    // Mock Data (Replace with actual API calls)
-    const mockBookings = {
-        "PNR123NGUYEN": {
-            pnr: "PNR123", lastName: "NGUYEN",
-            flights: [{ flightNumber: "SA201", origin: "TP. Hồ Chí Minh (SGN)", destination: "Hà Nội (HAN)", departureTime: "08:00, 15/08/2025", arrivalTime: "10:05, 15/08/2025", status: "Sẵn sàng làm thủ tục" }],
-            passengers: [
-                { id: "pax001", name: "NGUYEN VAN A", type: "Người lớn", seat: null, eligible: true, checkedIn: false },
-                { id: "pax002", name: "NGUYEN THI B", type: "Trẻ em", seat: null, eligible: true, checkedIn: false },
-                { id: "pax003", name: "NGUYEN VAN C (INF)", type: "Em bé", seat: null, eligible: false, checkedIn: false } // Em bé thường check-in cùng người lớn
-            ]
-        },
-        "XYZ789LE": {
-            pnr: "XYZ789", lastName: "LE",
-            flights: [{ flightNumber: "SA305", origin: "Đà Nẵng (DAD)", destination: "TP. Hồ Chí Minh (SGN)", departureTime: "14:30, 20/08/2025", arrivalTime: "15:45, 20/08/2025", status: "Chuyến bay đã khởi hành" }],
-            passengers: [{ id: "pax101", name: "LE THI D", type: "Người lớn", seat: "10A", eligible: false, checkedIn: true }]
-        }
-    };
+    
+    let currentBookingData = null;
+    let selectedPassengerIds = [];
 
     function updateProgress(currentStepNumber) {
         progressSteps.forEach(step => {
@@ -77,186 +40,171 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function showStep(stepId) {
-        for (const key in steps) {
-            if (steps[key]) steps[key].classList.remove('active');
-        }
+        Object.values(steps).forEach(step => {
+            if(step) step.style.display = 'none';
+        });
         if (steps[stepId]) {
-            steps[stepId].classList.add('active');
-            // Update progress bar based on stepId
-            if (stepId === 'lookup') updateProgress(1);
-            else if (stepId === 'flightsPassengers') updateProgress(2);
-            else if (stepId === 'dangerousGoods') updateProgress(3);
-            else if (stepId === 'seatSelection') updateProgress(4);
-            else if (stepId === 'confirmation') updateProgress(5);
-            
-            steps[stepId].scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-         if (staticInfoDiv) { // Ẩn thông tin tĩnh khi bắt đầu các bước check-in
-            staticInfoDiv.style.display = (stepId === 'lookup') ? 'block' : 'none';
+            steps[stepId].style.display = 'block';
+            const stepNumber = Object.keys(steps).indexOf(stepId) + 1;
+            updateProgress(stepNumber);
         }
     }
 
-    // Step 1: Handle Lookup Form Submission
-    if (lookupForm) {
-        lookupForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const pnr = bookingCodeInput.value.trim().toUpperCase();
-            const lastName = lastNameInput.value.trim().toUpperCase();
-            if(lookupErrorMsg) lookupErrorMsg.style.display = 'none';
+    function displayError(element, message) {
+        if (element) {
+            element.textContent = message;
+            element.style.display = 'block';
+        }
+    }
 
-            if (!pnr || !lastName) {
-                if(lookupErrorMsg) {
-                    lookupErrorMsg.textContent = "Vui lòng nhập đầy đủ thông tin.";
-                    lookupErrorMsg.style.display = 'block';
-                }
-                return;
-            }
+    async function handleLookup(pnr, lastName) {
+        if(lookupButton) {
+            lookupButton.disabled = true;
+            lookupButton.textContent = 'Đang tìm...';
+        }
+        if(lookupErrorMsg) lookupErrorMsg.style.display = 'none';
+        
+        try {
+            const response = await fetch('/api/checkin/lookup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ booking_code: pnr, last_name: lastName })
+            });
+            const result = await response.json();
 
-            const bookingKey = pnr + lastName;
-            currentBookingData = mockBookings[bookingKey];
-
-            if (currentBookingData) {
-                const eligibleFlight = currentBookingData.flights.find(f => f.status.toLowerCase().includes("sẵn sàng"));
-                if(!eligibleFlight){
-                    if(lookupErrorMsg){
-                        lookupErrorMsg.textContent = "Không có chuyến bay nào trong đặt chỗ này đủ điều kiện làm thủ tục.";
-                        lookupErrorMsg.style.display = 'block';
-                    }
-                    return;
-                }
+            if (response.ok && result.success) {
+                currentBookingData = result.booking;
                 populateFlightsAndPassengersStep();
                 showStep('flightsPassengers');
             } else {
-                if(lookupErrorMsg) {
-                    lookupErrorMsg.textContent = "Không tìm thấy đặt chỗ hoặc thông tin không chính xác.";
-                    lookupErrorMsg.style.display = 'block';
-                }
+                displayError(lookupErrorMsg, result.message || "Không tìm thấy đặt chỗ hoặc thông tin không chính xác.");
             }
+        } catch (error) {
+            displayError(lookupErrorMsg, "Lỗi kết nối máy chủ. Vui lòng thử lại.");
+        } finally {
+            if(lookupButton) {
+                lookupButton.disabled = false;
+                lookupButton.textContent = 'Tìm đặt chỗ';
+            }
+        }
+    }
+
+    if (lookupForm) {
+        lookupForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const pnr = document.getElementById('checkin-booking-code').value.trim().toUpperCase();
+            const lastName = document.getElementById('checkin-last-name').value.trim();
+            handleLookup(pnr, lastName);
         });
     }
 
-    // Step 2: Populate Flights and Passengers
     function populateFlightsAndPassengersStep() {
         if (!currentBookingData || !flightsListDiv || !passengersListDiv) return;
-        flightsListDiv.innerHTML = '';
-        currentBookingData.flights.forEach(flight => {
-            if(flight.status.toLowerCase().includes("sẵn sàng")){
-                 const flightDiv = document.createElement('div');
-                flightDiv.className = 'flight-checkin-item-vj';
-                flightDiv.innerHTML = `
-                    <h3>Chuyến bay ${flight.flightNumber}: ${flight.origin} <i class="fas fa-long-arrow-alt-right"></i> ${flight.destination}</h3>
-                    <p><i class="fas fa-calendar-alt"></i> Khởi hành: ${flight.departureTime} &nbsp;&nbsp; <i class="fas fa-clock"></i> Đến: ${flight.arrivalTime}</p>
-                    <p>Trạng thái: <span class="status-tag-vj ${flight.status.toLowerCase().includes('sẵn sàng') ? 'status-ok-vj' : 'status-not-ok-vj'}">${flight.status}</span></p>
-                `;
-                flightsListDiv.appendChild(flightDiv);
-            }
-        });
+        flightsListDiv.innerHTML = `
+            <div class="flight-checkin-item-vj">
+                <h3>Chuyến bay ${currentBookingData.flight_number}: ${currentBookingData.departure_city} → ${currentBookingData.arrival_city}</h3>
+                <p><i class="fas fa-calendar-alt"></i> Khởi hành: ${new Date(currentBookingData.departure_time).toLocaleString('vi-VN')}</p>
+            </div>`;
 
         passengersListDiv.innerHTML = '';
         currentBookingData.passengers.forEach(pax => {
-            const paxDiv = document.createElement('div');
-            paxDiv.className = 'passenger-checkin-item-vj';
-            const isDisabled = !pax.eligible || pax.checkedIn;
-            const statusText = pax.checkedIn ? ' (Đã làm thủ tục)' : (!pax.eligible ? ' (Không đủ điều kiện)' : '');
-            paxDiv.innerHTML = `
-                <label class="${isDisabled ? 'disabled' : ''}">
-                    <input type="checkbox" name="selected_passengers" value="${pax.id}" data-name="${pax.name}" ${isDisabled ? 'disabled' : ''}>
-                    <span class="pax-name">${pax.name}</span> <span class="pax-type">(${pax.type})</span> <span class="pax-status">${statusText}</span>
-                </label>
-            `;
-            passengersListDiv.appendChild(paxDiv);
-        });
-    }
-
-    if (passengersSelectionForm) {
-        passengersSelectionForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            selectedPassengers = [];
-            const checkedBoxes = passengersListDiv.querySelectorAll('input[name="selected_passengers"]:checked');
-            if (checkedBoxes.length === 0) {
-                if(passengerSelectionError) passengerSelectionError.style.display = 'block';
-                return;
-            }
-            if(passengerSelectionError) passengerSelectionError.style.display = 'none';
-            checkedBoxes.forEach(cb => selectedPassengers.push({ id: cb.value, name: cb.dataset.name }));
-            console.log("Hành khách đã chọn để check-in:", selectedPassengers);
-            showStep('dangerousGoods');
-        });
-    }
-
-    // Step 3: Handle Dangerous Goods Form
-    if (dangerousGoodsForm) {
-        dangerousGoodsForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            if (!confirmDGBCheckbox.checked) {
-                if(dangerousGoodsError) dangerousGoodsError.style.display = 'block';
-                return;
-            }
-            if(dangerousGoodsError) dangerousGoodsError.style.display = 'none';
-            populateSeatSelectionDisplay();
-            showStep('seatSelection');
+            const isCheckedIn = pax.seat_assigned && pax.seat_assigned !== '';
+            const statusText = isCheckedIn ? ` (Đã check-in - Ghế ${pax.seat_assigned})` : ' (Sẵn sàng check-in)';
+            passengersListDiv.innerHTML += `
+                <div class="passenger-checkin-item-vj">
+                    <label class="${isCheckedIn ? 'disabled' : ''}">
+                        <input type="checkbox" name="selected_passengers" value="${pax.id}" ${isCheckedIn ? 'disabled' : ''}>
+                        <span class="pax-name">${pax.full_name}</span> 
+                        <span class="pax-status">${statusText}</span>
+                    </label>
+                </div>`;
         });
     }
     
-    // Step 4: Populate Seat Selection Display
-    function populateSeatSelectionDisplay() {
-        if (!passengerSeatDisplayList || !currentBookingData) return;
-        passengerSeatDisplayList.innerHTML = '';
-        selectedPassengers.forEach(sp => {
-            const paxData = currentBookingData.passengers.find(p => p.id === sp.id);
-            const li = document.createElement('li');
-            li.innerHTML = `<strong>${sp.name}:</strong> ${paxData.seat || "Sẽ được chỉ định tự động/tại sân bay"}`;
-            passengerSeatDisplayList.appendChild(li);
-        });
-    }
+    passengersSelectionForm?.addEventListener('submit', function(e) {
+        e.preventDefault();
+        selectedPassengerIds = Array.from(passengersListDiv.querySelectorAll('input[name="selected_passengers"]:checked')).map(cb => cb.value);
+        if (selectedPassengerIds.length === 0) {
+            displayError(passengerSelectionError, "Vui lòng chọn ít nhất một hành khách để làm thủ tục.");
+            return;
+        }
+        passengerSelectionError.style.display = 'none';
+        showStep('dangerousGoods');
+    });
 
-    if (btnConfirmSeatsCheckin) {
-        btnConfirmSeatsCheckin.addEventListener('click', function() {
-            // Simulate successful check-in
-            selectedPassengers.forEach(sp => {
-                const paxInBooking = currentBookingData.passengers.find(p => p.id === sp.id);
-                if (paxInBooking) {
-                    paxInBooking.checkedIn = true;
-                    paxInBooking.seat = paxInBooking.seat || "18B"; // Gán ghế mẫu nếu chưa có
-                }
+    dangerousGoodsForm?.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        if (!confirmDGBCheckbox.checked) {
+            displayError(dangerousGoodsError, "Bạn phải đồng ý với điều khoản này để tiếp tục.");
+            return;
+        }
+        dangerousGoodsError.style.display = 'none';
+        
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = 'Đang xử lý...';
+
+        try {
+            const response = await fetch('/api/checkin/process', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ booking_id: currentBookingData.booking_id, passenger_ids: selectedPassengerIds })
             });
-            console.log("Đã check-in cho:", selectedPassengers, "Dữ liệu booking cập nhật:", currentBookingData);
-            populateConfirmationStep();
-            showStep('confirmation');
-        });
-    }
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                populateConfirmationStep(result.details);
+                showStep('confirmation');
+            } else {
+                alert("Lỗi Check-in: " + (result.message || "Không thể hoàn tất thủ tục."));
+            }
+        } catch (error) {
+            alert("Lỗi kết nối khi hoàn tất check-in. Vui lòng thử lại.");
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Hoàn tất thủ tục <i class="fas fa-check-circle"></i>';
+        }
+    });
     
-    // Step 5: Populate Confirmation Step
-    function populateConfirmationStep() {
+    function populateConfirmationStep(checkedInDetails) {
         if (!boardingPassSummaryList || !currentBookingData) return;
         boardingPassSummaryList.innerHTML = '';
-        const flightInfo = currentBookingData.flights[0]; // Giả sử chỉ có 1 chuyến bay trong lần check-in này
+        const flightInfo = currentBookingData;
 
-        selectedPassengers.forEach(sp => {
-            const paxData = currentBookingData.passengers.find(p => p.id === sp.id);
-            if (!paxData || !paxData.checkedIn) return;
-
-            const bpDiv = document.createElement('div');
-            bpDiv.className = 'boarding-pass-summary-item';
-            bpDiv.innerHTML = `
-                <h4>${paxData.name.toUpperCase()}</h4>
-                <p><strong>Chuyến bay:</strong> ${flightInfo.flightNumber}, ${flightInfo.origin} đến ${flightInfo.destination}</p>
-                <p><strong>Ngày bay:</strong> ${flightInfo.departureTime.split(', ')[1]}</p>
-                <p><strong>Giờ khởi hành:</strong> ${flightInfo.departureTime.split(', ')[0]}</p>
-                <p><strong>Ghế:</strong> ${paxData.seat || "N/A"}</p>
-                <p><strong>Cửa lên máy bay:</strong> (Sẽ hiển thị trên bảng thông tin tại sân bay)</p>
-                <p><strong>Giờ lên máy bay:</strong> (Trước giờ khởi hành 45 phút)</p>
-            `;
-            boardingPassSummaryList.appendChild(bpDiv);
+        checkedInDetails.forEach(paxDetail => {
+            boardingPassSummaryList.innerHTML += `
+                <div class="boarding-pass-summary-item">
+                    <h4>${paxDetail.name.toUpperCase()}</h4>
+                    <p><strong>Chuyến bay:</strong> ${flightInfo.flight_number}, ${flightInfo.departure_city} đến ${flightInfo.arrival_city}</p>
+                    <p><strong>Ngày bay:</strong> ${new Date(flightInfo.departure_time).toLocaleDateString('vi-VN')}</p>
+                    <p><strong>Giờ khởi hành:</strong> ${new Date(flightInfo.departure_time).toLocaleTimeString('vi-VN')}</p>
+                    <p><strong>Ghế:</strong> ${paxDetail.seat || "N/A"}</p>
+                </div>`;
         });
     }
 
+    function autoSubmitCheckinLookup() {
+        const pnrInput = document.getElementById('checkin-booking-code');
+        const lastNameInput = document.getElementById('checkin-last-name');
+        
+        const urlParams = new URLSearchParams(window.location.search);
+        const pnrFromUrl = urlParams.get('pnr');
+        const lastNameFromUrl = urlParams.get('lastName');
 
-    // Navigation button listeners
-    if(btnBackToLookup) btnBackToLookup.addEventListener('click', () => showStep('lookup'));
-    if(btnBackToPassengers) btnBackToPassengers.addEventListener('click', () => showStep('flightsPassengers'));
-    if(btnBackToDangerousGoods) btnBackToDangerousGoods.addEventListener('click', () => showStep('dangerousGoods'));
+        if (pnrInput && lastNameInput && pnrFromUrl && lastNameFromUrl) {
+            pnrInput.value = pnrFromUrl;
+            lastNameInput.value = lastNameFromUrl;
+            
+            console.log("Tự động tìm kiếm check-in...");
+            handleLookup(pnrFromUrl, lastNameFromUrl);
+        }
+    }
 
-    // Initialize
-    showStep('lookup'); // Hiển thị bước đầu tiên khi tải trang
+    document.getElementById('btn-back-to-lookup')?.addEventListener('click', () => {
+        window.location.reload(); // Tải lại trang để bắt đầu lại
+    });
+    document.getElementById('btn-back-to-passengers')?.addEventListener('click', () => showStep('flightsPassengers'));
+
+    showStep('lookup');
+    autoSubmitCheckinLookup();
 });
