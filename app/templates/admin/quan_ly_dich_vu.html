@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Quản lý Người dùng - SangAir Admin</title>
+    <title>Quản lý Dịch vụ Chuyến bay - SangAir Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/admin_layout.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/quan_ly_nguoi_dung.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin/quan_ly_e_menu.css') }}">
 </head>
 <body class="admin-body">
     <div class="admin-container">
@@ -38,7 +38,7 @@
                 <div class="header-left-controls">
                     <button id="mobile-menu-toggle-btn" class="menu-toggle-btn"><i class="fas fa-bars"></i></button>
                     <div class="header-title">
-                        <h1>Quản lý Người dùng</h1>
+                        <h1>Quản lý Dịch vụ Chuyến bay</h1>
                     </div>
                 </div>
                 <div class="admin-user-info">
@@ -49,87 +49,92 @@
 
             <div class="page-content-area">
                 <div class="page-header">
-                    <button id="addUserBtn" class="btn btn-primary"><i class="fas fa-user-plus"></i> Thêm người dùng mới</button>
-                    <div class="search-filter-area">
-                        <input type="text" id="userSearchInput" placeholder="Tìm theo Tên, Email, SĐT...">
-                        <select id="userStatusFilter">
-                            <option value="">Tất cả trạng thái</option>
-                            <option value="active">Đang hoạt động</option>
-                            <option value="locked">Bị khóa</option>
-                            <option value="pending">Chờ kích hoạt</option>
-                        </select>
-                        <button id="applyUserFilterBtn" class="btn btn-secondary-outline">Lọc</button>
-                    </div>
+                    <button id="addServiceBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Thêm dịch vụ mới</button>
                 </div>
 
                 <div class="table-container">
-                    <table id="usersTable">
+                    <table id="servicesTable">
                         <thead>
                             <tr>
                                 <th>ID</th>
-                                <th>Họ và Tên</th>
-                                <th>Email</th>
-                                <th>Số điện thoại</th>
-                                <th>Ngày đăng ký</th>
+                                <th>Tên Dịch vụ</th>
+                                <th>Danh mục</th>
+                                <th>Giá VND</th>
+                                <th>Mô tả</th>
                                 <th>Trạng thái</th>
                                 <th>Hành động</th>
                             </tr>
                         </thead>
-                        <tbody id="usersTableBody">
-                            </tbody>
+                        <tbody id="servicesTableBody"></tbody>
                     </table>
                 </div>
-                <div class="pagination-container" id="paginationContainerUsers">
-                    </div>
             </div>
         </main>
     </div>
 
-    <div id="userFormModal" class="admin-modal">
-        <div class="modal-content medium"> 
-            <span class="modal-close-btn" id="closeUserModalBtn">×</span>
-            <h3 id="userModalTitle">Thêm người dùng mới</h3>
-            <form id="userForm" novalidate> <input type="hidden" id="userId" name="userId">
+    <div id="serviceFormModal" class="admin-modal">
+        <div class="modal-content large">
+            <span class="modal-close-btn" id="closeServiceModalBtn">×</span>
+            <h3 id="serviceModalTitle">Thêm dịch vụ mới</h3>
+            <form id="serviceForm" novalidate>
+                <input type="hidden" id="serviceId" name="id">
+                
+                <div class="form-group">
+                    <label for="serviceName">Tên dịch vụ *</label>
+                    <input type="text" id="serviceName" name="name" required>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="userFullName">Họ và Tên *</label>
-                        <input type="text" id="userFullName" name="userFullName">
-                        </div>
+                        <label for="serviceCategory">Danh mục *</label>
+                        <select id="serviceCategory" name="category" required>
+                            <option value="">-- Chọn danh mục --</option>
+                            <option value="baggage">Hành lý</option>
+                            <option value="seat_preference">Chọn ghế</option>
+                            <option value="insurance">Bảo hiểm</option>
+                            <option value="priority_services">Dịch vụ ưu tiên</option>
+                            <option value="airport_transfer">Đưa đón sân bay</option>
+                            <option value="in_flight_entertainment">Giải trí trên chuyến bay</option>
+                        </select>
+                    </div>
                     <div class="form-group">
-                        <label for="userEmail">Email *</label>
-                        <input type="email" id="userEmail" name="userEmail">
+                        <label for="serviceIsAvailable">Trạng thái</label>
+                        <select id="serviceIsAvailable" name="is_available">
+                            <option value="1">Đang khả dụng</option>
+                            <option value="0">Không khả dụng</option>
+                        </select>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="userPhone">Số điện thoại</label>
-                        <input type="tel" id="userPhone" name="userPhone">
+                        <label for="servicePriceVND">Giá VND *</label>
+                        <input type="number" id="servicePriceVND" name="price_vnd" min="0" required>
                     </div>
                     <div class="form-group">
-                        <label for="userStatus">Trạng thái *</label>
-                        <select id="userStatus" name="userStatus">
-                            <option value="active">Đang hoạt động</option>
-                            <option value="locked">Bị khóa</option>
-                            <option value="pending">Chờ kích hoạt</option>
-                        </select>
+                        <label for="servicePriceUSD">Giá USD</label>
+                        <input type="number" id="servicePriceUSD" name="price_usd" min="0">
                     </div>
                 </div>
                 
                 <div class="form-group">
-                    <label for="userPassword">Mật khẩu</label>
-                    <input type="password" id="userPassword" name="userPassword" placeholder="Nhập mật khẩu (ít nhất 6 ký tự)">
+                    <label for="serviceDescription">Mô tả chi tiết</label>
+                    <textarea id="serviceDescription" name="description" rows="3"></textarea>
+                </div>
+                 <div class="form-group">
+                    <label for="serviceConditions">Điều kiện & Điều khoản</label>
+                    <textarea id="serviceConditions" name="conditions" rows="4"></textarea>
                 </div>
                 
                 <div class="form-actions">
-                    <button type="submit" class="btn btn-primary" id="saveUserBtn">Lưu thông tin</button>
-                    <button type="button" class="btn btn-secondary" id="cancelUserFormBtn">Hủy</button>
+                    <button type="submit" class="btn btn-primary">Lưu</button>
+                    <button type="button" class="btn btn-secondary" id="cancelServiceFormBtn">Hủy</button>
                 </div>
             </form>
         </div>
     </div>
 
     <script src="{{ url_for('static', filename='js/admin/script_admin_layout.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/admin/script_quan_ly_nguoi_dung.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/admin/script_quan_ly_dich_vu.js') }}"></script> 
 </body>
 </html>

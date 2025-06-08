@@ -112,7 +112,7 @@
             <div class="payment-methods">
                 <h3>Chọn phương thức thanh toán</h3>
                 <button id="confirmPaymentBtn" class="btn-pay">
-                    Xác nhận thanh toán (Mô phỏng)
+                    Xác nhận thanh toán
                 </button>
             </div>
         {% else %}
@@ -150,12 +150,12 @@
                         window.location.href = result.redirect_url || "{{ url_for('client_bp.my_flights_page') }}";
                     } else {
                         alert("Lỗi: " + (result.message || "Thanh toán thất bại."));
-                        this.textContent = 'Xác nhận thanh toán (Mô phỏng)';
+                        this.textContent = 'Xác nhận thanh toán';
                         this.disabled = false;
                     }
                 } catch (error) {
                     alert("Lỗi kết nối. Vui lòng thử lại.");
-                    this.textContent = 'Xác nhận thanh toán (Mô phỏng)';
+                    this.textContent = 'Xác nhận thanh toán';
                     this.disabled = false;
                 }
             });

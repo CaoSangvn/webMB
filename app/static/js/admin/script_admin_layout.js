@@ -1,15 +1,15 @@
+// app/static/js/admin/script_admin_layout.js
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Admin Layout Script Loaded (Simplified)!");
+    console.log("Admin Layout Script Loaded with Active Link Fix!");
 
     const sidebar = document.getElementById('adminSidebar');
     const mobileToggleBtn = document.getElementById('mobile-menu-toggle-btn');
     const mainContentForOverlay = document.querySelector('.admin-main-content');
 
-
     // --- Mobile Sidebar Open/Close Toggle ---
     if (mobileToggleBtn && sidebar) {
         mobileToggleBtn.addEventListener('click', function(event) {
-            event.stopPropagation(); // Ngăn sự kiện click nổi bọt lên document
+            event.stopPropagation();
             sidebar.classList.toggle('open');
             if (mainContentForOverlay) {
                 mainContentForOverlay.classList.toggle('sidebar-open-overlay');
@@ -17,12 +17,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Đóng sidebar khi click vào main content hoặc bất kỳ đâu ngoài sidebar (chỉ trên mobile khi sidebar đang mở)
     document.addEventListener('click', function(event) {
         if (sidebar && sidebar.classList.contains('open') && window.innerWidth <= 768) {
             const isClickInsideSidebar = sidebar.contains(event.target);
             const isClickOnToggleButton = mobileToggleBtn ? mobileToggleBtn.contains(event.target) : false;
-
             if (!isClickInsideSidebar && !isClickOnToggleButton) {
                 sidebar.classList.remove('open');
                 if (mainContentForOverlay) {
@@ -32,51 +30,69 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    
+    // <<< BẮT ĐẦU PHẦN LOGIC ĐƯỢC CẬP NHẬT >>>
     // --- Sidebar Active Link ---
-    const currentLocation = window.location.pathname; 
+    const currentLocation = window.location.pathname;
     const sidebarLinks = document.querySelectorAll('.sidebar-nav a');
+
+    let isLinkActivated = false;
+
+    // Xóa tất cả các class active trước khi xử lý
+    document.querySelectorAll('.sidebar-nav li').forEach(li => {
+        li.classList.remove('active');
+    });
 
     sidebarLinks.forEach(link => {
         const linkHref = link.getAttribute('href');
-        // So sánh chính xác hơn, tránh trường hợp "index.html" khớp với "admin/index.html"
-        if (linkHref && currentLocation.endsWith(linkHref) && (currentLocation.length === linkHref.length || currentLocation.charAt(currentLocation.length - linkHref.length -1) === '/')) {
-            sidebarLinks.forEach(l => l.parentElement.classList.remove('active'));
+        // So sánh chính xác href với pathname
+        if (linkHref === currentLocation) {
             link.parentElement.classList.add('active');
+            isLinkActivated = true;
+
+            // Nếu đây là một mục trong submenu, mở cả submenu cha
+            const parentSubmenu = link.closest('.submenu');
+            if (parentSubmenu) {
+                const parentHasSubmenu = parentSubmenu.closest('.has-submenu');
+                if (parentHasSubmenu) {
+                    parentHasSubmenu.classList.add('open');
+                }
+            }
         }
     });
-    // Xử lý đặc biệt cho trang dashboard nếu URL là /admin/ hoặc /admin/dashboard.html (hoặc /admin/index.html)
-    const adminBasePaths = ['/admin/', '/admin/index.html']; 
-    if (adminBasePaths.some(path => currentLocation.endsWith(path)) || (currentLocation.includes('dashboard.html') && !currentLocation.includes('dashboard.html.'))) {
-        const dashboardLink = document.querySelector('.sidebar-nav a[href="dashboard.html"]');
+
+    // Xử lý trường hợp đặc biệt cho dashboard (nếu URL là /admin/ hoặc /admin)
+    if (!isLinkActivated && (currentLocation === '/admin/' || currentLocation === '/admin')) {
+        const dashboardLink = document.querySelector('.sidebar-nav a[href$="/dashboard"]');
         if (dashboardLink) {
-             sidebarLinks.forEach(l => l.parentElement.classList.remove('active'));
             dashboardLink.parentElement.classList.add('active');
         }
     }
+    // <<< KẾT THÚC PHẦN LOGIC ĐƯỢC CẬP NHẬT >>>
 
+
+    // --- Sidebar Submenu Toggle ---
+    const submenuToggles = document.querySelectorAll('.sidebar-nav .has-submenu > a');
+    submenuToggles.forEach(toggle => {
+        toggle.addEventListener('click', function(event) {
+            event.preventDefault();
+            const parentLi = this.parentElement;
+            parentLi.classList.toggle('open');
+        });
+    });
 
     // --- Xử lý Logout ---
-    const logoutButton = document.querySelector('.logout-btn'); // Lấy nút đăng xuất
+    const logoutButton = document.querySelector('.logout-btn');
     if (logoutButton) {
-        logoutButton.addEventListener('click', async function(e) { // Thêm async
-            e.preventDefault(); // Ngăn hành vi mặc định của thẻ <a> nếu href="#"
+        logoutButton.addEventListener('click', async function(e) {
+            e.preventDefault();
             if (confirm("Bạn có chắc chắn muốn đăng xuất không?")) {
                 try {
-                    const response = await fetch('/api/auth/logout', { // Gọi API logout (trong client_routes.py)
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            // Nếu API logout của bạn yêu cầu CSRF token hoặc các header khác, thêm vào đây
-                        }
-                    });
+                    const response = await fetch('/api/auth/logout', { method: 'POST' });
                     const result = await response.json();
 
                     if (response.ok && result.success) {
                         alert(result.message || "Đăng xuất thành công!");
-                        // Chuyển hướng về trang đăng nhập chung (client/dang_nhap.html)
-                        // Vì admin cũng dùng trang đăng nhập này
-                        window.location.href = '/dang-nhap'; // Hoặc url_for('client_bp.login_page') nếu bạn có cách lấy URL đó ở JS
+                        window.location.href = '/dang-nhap';
                     } else {
                         alert("Lỗi đăng xuất: " + (result.message || "Không thể đăng xuất."));
                     }

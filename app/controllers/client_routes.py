@@ -1,12 +1,24 @@
 # app/controllers/client_routes.py
 from flask import Blueprint, request, jsonify, session, current_app, render_template, redirect, url_for
-from app.models import client_model, airport_model, flight_model, menu_item_model, notification_model, settings_model, booking_model
+from app.models import client_model, airport_model, flight_model, menu_item_model, notification_model, settings_model, booking_model, ancillary_service_model
 from app.models.menu_item_model import serialize_menu_item 
 from werkzeug.security import check_password_hash
 import re
 import sqlite3
 from datetime import datetime, timedelta
+from functools import wraps
+def login_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Kiểm tra xem 'user_id' có trong session không
+        if 'user_id' not in session:
+            # Nếu chưa đăng nhập, chuyển hướng đến trang đăng nhập
+            # next=request.url sẽ giúp đưa người dùng trở lại trang cũ sau khi đăng nhập thành công
+            return redirect(url_for('client_bp.login_page', next=request.url))
 
+        # Nếu đã đăng nhập, cho phép truy cập vào trang
+        return f(*args, **kwargs)
+    return decorated_function           
 client_bp = Blueprint('client_bp', __name__,
                       template_folder='../templates/',
                       url_prefix='/')
@@ -58,6 +70,7 @@ def logout_user():
     return redirect(url_for('client_bp.home_page'))
 
 @client_bp.route('/chuyen-bay-cua-toi')
+@login_required
 def my_flights_page():
     current_user_name = None
     if 'user_id' in session:
@@ -76,6 +89,7 @@ def e_menu_page():
     return render_template("client/e_menu.html", current_user_name=current_user_name)
 
 @client_bp.route('/dich-vu-chuyen-bay')
+@login_required
 def flight_services_page():
     current_user_name = None
     if 'user_id' in session:
@@ -85,6 +99,7 @@ def flight_services_page():
     return render_template("client/flight_services.html", current_user_name=current_user_name)
 
 @client_bp.route('/check-in-online')
+@login_required
 def online_checkin_page():
     current_user_name = None
     if 'user_id' in session:
@@ -94,6 +109,7 @@ def online_checkin_page():
     return render_template("client/online_checkin.html", current_user_name=current_user_name)
 
 @client_bp.route('/thanh-toan')
+@login_required
 def payment_page_render():
     if 'user_id' not in session:
         return redirect(url_for('client_bp.login_page', next=request.url))
@@ -230,6 +246,9 @@ def create_booking_api():
     if not data: return jsonify({"success": False, "message": "Dữ liệu không hợp lệ."}), 400
 
     try:
+        # << LẤY THÊM DỮ LIỆU CHI PHÍ DỊCH VỤ TỪ CLIENT >>
+        ancillary_cost = data.get('ancillary_cost', 0)
+
         booking_result = booking_model.create_booking(
             user_id=session['user_id'],
             flight_id=data['flight_id'],
@@ -238,7 +257,8 @@ def create_booking_api():
             num_adults=data['num_adults'],
             num_children=data['num_children'],
             num_infants=data.get('num_infants', 0),
-            payment_method=data['payment_method']
+            payment_method=data['payment_method'],
+            ancillary_services_cost=ancillary_cost # << TRUYỀN VÀO MODEL
         )
         session['booking_id_to_pay'] = booking_result['booking_id']
         return jsonify({
@@ -399,4 +419,58 @@ def process_checkin_api():
             return jsonify({"success": False, "message": message}), 500
     except Exception as e:
         current_app.logger.error(f"Lỗi API xử lý check-in cho booking {booking_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
+@client_bp.route('/api/ancillary-services', methods=['GET'])
+def get_ancillary_services_api():
+    try:
+        services = ancillary_service_model.get_available_services_client()
+        return jsonify({"success": True, "services": services}), 200
+    except Exception as e:
+        current_app.logger.error(f"Client API: Error fetching ancillary services: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ khi tải danh sách dịch vụ."}), 500
+
+@client_bp.route('/api/bookings/add-ancillary-service', methods=['POST'])
+def add_ancillary_service_api():
+    if 'user_id' not in session:
+        return jsonify({"success": False, "message": "Vui lòng đăng nhập để thực hiện chức năng này."}), 401
+
+    data = request.get_json()
+    pnr = data.get('pnr')
+    service_id = data.get('service_id')
+
+    if not pnr or not service_id:
+        return jsonify({"success": False, "message": "Thiếu thông tin Mã đặt chỗ hoặc Dịch vụ."}), 400
+
+    try:
+        result = booking_model.add_ancillary_service_to_booking(session['user_id'], pnr, service_id)
+        if result.get('success'):
+            session['booking_id_to_pay'] = result.get('booking_id')
+            return jsonify({
+                "success": True,
+                "message": "Đã thêm dịch vụ thành công! Đang chuyển đến trang thanh toán...",
+                "redirect_url": url_for('client_bp.payment_page_render')
+            }), 200
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
+    except Exception as e:
+        current_app.logger.error(f"API Add Service Error: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
+@client_bp.route('/api/bookings/cancel', methods=['POST'])
+@login_required
+def cancel_booking_api():
+    data = request.get_json()
+    booking_id = data.get('booking_id')
+
+    if not booking_id:
+        return jsonify({"success": False, "message": "Thiếu mã đặt chỗ."}), 400
+
+    try:
+        # Gọi hàm model để hủy, truyền vào user_id từ session để bảo mật
+        booking_model.cancel_booking_by_user(session['user_id'], booking_id)
+        return jsonify({"success": True, "message": "Hủy đặt chỗ thành công!"}), 200
+    except ValueError as ve:
+        # Bắt các lỗi validation từ model (ví dụ: PNR không hợp lệ, không có quyền hủy)
+        return jsonify({"success": False, "message": str(ve)}), 400
+    except Exception as e:
+        current_app.logger.error(f"API Cancel Booking Error: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500

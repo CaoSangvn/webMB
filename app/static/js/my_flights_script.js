@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', function() {
         "confirmed": { text: "Đã xác nhận", class: "status-confirmed-vj" },
         "pending_payment": { text: "Chờ thanh toán", class: "status-pending-vj" },
         "payment_received": { text: "Đã thanh toán", class: "status-paid-vj" },
-        "cancelled_by_user": { text: "Đã hủy bởi bạn", class: "status-cancelled-vj" },
+        "cancelled_by_user": { text: "Đã hủy", class: "status-cancelled-vj" },
         "cancelled_by_airline": { text: "Chuyến bay bị hủy", class: "status-cancelled-vj" },
         "completed": { text: "Đã hoàn thành", class: "status-completed-vj" },
         "no_show": { text: "Không có mặt", class: "status-no-show-vj" }
@@ -45,8 +45,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const statusInfo = statusMapping[booking.booking_status] || { text: booking.booking_status || 'N/A', class: 'status-pending-vj' };
         
+        let actionsHTML = '';
+        if (booking.booking_status === 'confirmed' || booking.booking_status === 'pending_payment' || booking.booking_status === 'payment_received') {
+            actionsHTML = `
+                <div class="flight-actions-vj">
+                    <button class="action-btn-vj primary-btn-vj online-checkin-btn-vj"><i class="fas fa-check-circle"></i>Làm thủ tục Online</button>
+                    <button class="action-btn-vj secondary-btn-vj add-service-btn-show-vj"><i class="fas fa-concierge-bell"></i>Thêm Dịch vụ</button>
+                    <button class="action-btn-vj cancel-booking-btn-vj" style="background-color: #dc3545; color: white;"><i class="fas fa-times-circle"></i>Hủy chuyến</button>
+                </div>
+            `;
+        }
+
         const cardHTML = `
-        <div class="flight-card-vj" data-pnr="${booking.pnr}">
+        <div class="flight-card-vj" data-booking-id="${booking.booking_id}" data-pnr="${booking.pnr}">
             <div class="card-header-vj">
                 <h2>Mã đặt chỗ: <span>${booking.pnr}</span></h2>
                 <span class="status-vj ${statusInfo.class}">${statusInfo.text}</span>
@@ -71,10 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="fare-row-vj total-fare-vj"><strong>Tổng cộng:</strong> <strong>${formatCurrency(booking.total_amount)}</strong></div>
                 <p class="payment-status-info-vj">Trạng thái thanh toán: <span class="${booking.payment_status === 'paid' ? 'status-paid-vj' : ''}">${booking.payment_status || 'N/A'}</span></p>
             </div>
-            <div class="flight-actions-vj">
-                <button class="action-btn-vj primary-btn-vj online-checkin-btn-vj"><i class="fas fa-check-circle"></i>Làm thủ tục Online</button>
-                <button class="action-btn-vj secondary-btn-vj add-service-btn-show-vj"><i class="fas fa-concierge-bell"></i>Thêm Dịch vụ</button>
-            </div>
+            ${actionsHTML}
         </div>
         <button id="back-to-list-btn" class="action-btn-vj secondary-btn-vj" style="margin-top: 15px;"><i class="fas fa-arrow-left"></i> Quay lại danh sách</button>
         `;
@@ -163,13 +171,11 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function fetchMyBookingsOnLoad() {
-        console.log("Kiểm tra trạng thái đăng nhập để tải 'Chuyến bay của tôi'...");
         try {
             const authResponse = await fetch('/api/auth/status');
             const authData = await authResponse.json();
 
             if (authData.logged_in) {
-                console.log("Đã đăng nhập, đang tải danh sách đặt chỗ...");
                 const bookingsResponse = await fetch('/api/my-bookings');
                 const bookingsData = await bookingsResponse.json();
 
@@ -180,15 +186,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (myBookingsListContainer) myBookingsListContainer.innerHTML = `<p>${bookingsData.message || 'Không tải được danh sách chuyến bay của bạn.'}</p>`;
                 }
             } else {
-                console.log("Chưa đăng nhập, sẽ không tự động tải 'Chuyến bay của tôi'.");
                 if (myBookingsListContainer) myBookingsListContainer.innerHTML = "<p>Vui lòng đăng nhập để xem chuyến bay của bạn, hoặc sử dụng form tra cứu nếu có mã đặt chỗ.</p>";
             }
-            if (myBookingsListContainer) myBookingsListContainer.style.display = "block";
         } catch (error) {
-            console.error("Lỗi khi tải danh sách chuyến bay của tôi (catch):", error);
+            console.error("Lỗi khi tải danh sách chuyến bay của tôi:", error);
             if (myBookingsListContainer) myBookingsListContainer.innerHTML = "<p>Lỗi kết nối khi tải chuyến bay của bạn.</p>";
-            if (myBookingsListContainer) myBookingsListContainer.style.display = "block";
         }
+        if (myBookingsListContainer) myBookingsListContainer.style.display = "block";
     }
 
     async function loadMealsIntoModal() {
@@ -250,18 +254,19 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!card) return;
 
         card.querySelector('.online-checkin-btn-vj')?.addEventListener('click', () => {
-            const pnr = booking.pnr;
             const lastName = booking.passengers && booking.passengers.length > 0 ? booking.passengers[0].last_name : '';
-            if (pnr && lastName) {
-                window.location.href = `/check-in-online?pnr=${pnr}&lastName=${encodeURIComponent(lastName)}`;
+            if (booking.pnr && lastName) {
+                window.location.href = `/check-in-online?pnr=${booking.pnr}&lastName=${encodeURIComponent(lastName)}`;
             } else {
                 alert("Không đủ thông tin hành khách để làm thủ tục.");
             }
         });
 
+        // <<< SỬA LỖI Ở ĐÂY >>>
         card.querySelector('.add-service-btn-show-vj')?.addEventListener('click', () => {
              if (serviceModal && currentBookingDataForCard) {
                 document.getElementById('modal-service-pnr-display-vj').textContent = currentBookingDataForCard.pnr;
+                // Sửa lại tên biến bị sai chính tả ở đây
                 document.getElementById('service-booking-id').value = currentBookingDataForCard.booking_id;
                 loadMealsIntoModal();
                 updateModalServiceFees();
@@ -269,7 +274,37 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        const backToListBtn = card.querySelector('#back-to-list-btn');
+        const cancelBtn = card.querySelector('.cancel-booking-btn-vj');
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', async function() {
+                const bookingId = card.dataset.bookingId;
+                if (confirm("Bạn có chắc chắn muốn hủy đặt chỗ này không? Hành động này không thể hoàn tác.")) {
+                    this.textContent = "Đang xử lý...";
+                    this.disabled = true;
+                    try {
+                        const response = await fetch('/api/bookings/cancel', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ booking_id: bookingId })
+                        });
+                        const result = await response.json();
+                        alert(result.message);
+                        if (result.success) {
+                            fetchMyBookingsOnLoad();
+                        } else {
+                            this.textContent = "Hủy chuyến";
+                            this.disabled = false;
+                        }
+                    } catch (error) {
+                        alert("Lỗi kết nối khi hủy chuyến.");
+                        this.textContent = "Hủy chuyến";
+                        this.disabled = false;
+                    }
+                }
+            });
+        }
+
+        const backToListBtn = document.getElementById('back-to-list-btn'); 
         if (backToListBtn) {
             backToListBtn.addEventListener('click', () => {
                 renderMyBookingsList(allUserBookings);
@@ -334,6 +369,5 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Khởi tạo
     fetchMyBookingsOnLoad();
 });

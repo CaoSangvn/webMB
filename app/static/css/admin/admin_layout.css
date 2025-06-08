@@ -232,3 +232,60 @@ body.admin-body {
         max-height: 95vh;
     }
 }
+/* Thêm vào cuối tệp app/static/css/admin/admin_layout.css */
+
+/* --- CSS cho Submenu --- */
+.sidebar-nav li.has-submenu > a {
+    position: relative;
+}
+
+.sidebar-nav li.has-submenu > a .submenu-arrow {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.8em;
+    transition: transform 0.3s ease;
+}
+
+/* Khi menu mở, xoay mũi tên */
+.sidebar-nav li.has-submenu.open > a .submenu-arrow {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.sidebar-nav .submenu {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+    max-height: 0; /* Mặc định ẩn menu con */
+    overflow: hidden;
+    transition: max-height 0.3s ease-in-out;
+    background-color: #2c3338; /* Màu nền hơi khác cho submenu */
+}
+
+/* Khi menu có class 'open', hiện ra với hiệu ứng trượt */
+.sidebar-nav li.has-submenu.open .submenu {
+    max-height: 500px; /* Chiều cao đủ lớn để chứa các mục con */
+}
+
+.sidebar-nav .submenu li a {
+    padding-left: 45px; /* Thụt lề cho các mục con */
+    font-size: 0.85em;
+    color: #ced4da;
+    border-left-color: #2c3338; /* Màu viền trái của mục con */
+}
+
+.sidebar-nav .submenu li a:hover,
+.sidebar-nav .submenu li.active a {
+    background-color: #495057;
+    color: #ffffff;
+}
+
+.sidebar-nav .submenu li.active a {
+    border-left-color: #007bff; /* Màu nhấn cho mục con đang active */
+}
+
+.sidebar-nav .submenu li a i {
+    font-size: 0.9em;
+    width: 15px;
+}

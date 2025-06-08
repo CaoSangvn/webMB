@@ -22,7 +22,6 @@
           <li><a href="{{ url_for('client_bp.flight_services_page') }}" class="active">DỊCH VỤ CHUYẾN BAY</a></li>
         </ul>
       </nav>
-
       <div class="auth-links">
           {% if current_user_name %}
               <span class="welcome-message">Chào, {{ current_user_name }}!</span>
@@ -32,13 +31,6 @@
               <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
           {% endif %}
       </div>
-
-      <div class="language-select">
-        <select>
-          <option>Tiếng Việt</option>
-          <option>English</option>
-        </select>
-      </div>
     </div>
   </header>
 
@@ -46,91 +38,112 @@
     <section class="flight-services-section-vj">
       <div class="section-header-vj">
         <h1><i class="fas fa-concierge-bell"></i> DỊCH VỤ CHUYẾN BAY</h1>
-        <p>Nâng tầm trải nghiệm bay của bạn với các dịch vụ chuyến bay đa dạng của SangAir. Từ hỗ trợ đặc biệt, lựa chọn chỗ ngồi đến các tiện ích bổ sung, chúng tôi luôn sẵn sàng phục vụ bạn.</p>
+        <p>Nâng tầm trải nghiệm bay của bạn với các dịch vụ chuyến bay đa dạng của SangAir.</p>
       </div>
       
-      <div class="service-grid-vj">
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-star"></i></div> 
-            <h3>Check-In Ưu Tiên</h3>
-            <p class="service-description-vj">Tiết kiệm thời gian với quầy check-in dành riêng cho hành khách ưu tiên.</p>
-            <p class="service-price-vj">Giá: 100,000 VND (Nội địa) / $5 USD (Quốc tế)</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="check-in-uu-tien">Chọn dịch vụ</button>
-          </div>
-        </div>
-
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-suitcase-rolling"></i></div>
-            <h3>Hành Lý Bổ Sung</h3>
-            <p class="service-description-vj">Mua thêm hành lý để mang theo mọi thứ bạn cần, từ 15kg đến 40kg.</p>
-            <p class="service-price-vj">Giá: Từ 50,000 VND/kg</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="hanh-ly-bo-sung">Chọn dịch vụ</button>
-          </div>
-        </div>
-
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-chair"></i></div>
-            <h3>Lựa Chọn Chỗ Ngồi</h3>
-            <p class="service-description-vj">Chọn chỗ ngồi yêu thích: gần cửa sổ, lối đi hoặc chỗ ngồi rộng hơn.</p>
-            <p class="service-price-vj">Giá: Từ 50,000 VND</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="lua-chon-cho-ngoi">Chọn dịch vụ</button>
-          </div>
-        </div>
-
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-car"></i></div>
-            <h3>Xe Đưa Đón Sân Bay</h3>
-            <p class="service-description-vj">Đặt xe đưa đón sân bay tiện lợi, tài xế đón tận nơi, hỗ trợ hành lý.</p>
-            <p class="service-price-vj">Giá: Từ 150,000 VND</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="xe-dua-don-san-bay">Chọn dịch vụ</button>
-          </div>
-        </div>
-
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-wheelchair"></i></div> 
-            <h3>Hỗ Trợ Đặc Biệt</h3>
-            <p class="service-description-vj">Dành cho hành khách khuyết tật, người cao tuổi hoặc cần hỗ trợ y tế.</p>
-            <p class="service-price-vj">Giá: Miễn phí (Liên hệ đặt trước)</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="ho-tro-dac-biet">Chọn dịch vụ</button>
-          </div>
-        </div>
-
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-film"></i></div> 
-            <h3>Giải Trí Trên Máy Bay</h3>
-            <p class="service-description-vj">Truy cập phim, nhạc và trò chơi trên các chuyến bay dài.</p>
-            <p class="service-price-vj">Giá: 80,000 VND (Quốc tế)</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="giai-tri-tren-may-bay">Chọn dịch vụ</button>
-          </div>
-        </div>
-        <div class="service-card-vj">
-          <div class="service-card-content-vj">
-            <div class="service-icon-top-vj"><i class="fas fa-shield-alt"></i></div>
-            <h3>Bảo Hiểm Du Lịch</h3>
-            <p class="service-description-vj">Bảo vệ chuyến đi của bạn với bảo hiểm hủy chuyến, chậm chuyến, mất hành lý.</p>
-            <p class="service-price-vj">Giá: Từ 120,000 VND</p>
-            <button class="action-btn-vj primary-btn-vj select-service-btn" data-service="bao-hiem-du-lich">Chọn dịch vụ</button>
-          </div>
-        </div>
+      <div id="service-grid-container" class="service-grid-vj">
+          <p style="text-align: center; color: #555;">Đang tải danh sách dịch vụ...</p>
       </div>
 
-      <p class="service-note-vj"><strong>Lưu ý:</strong> Giá dịch vụ có thể thay đổi tùy theo chặng bay và thời điểm đặt. Vui lòng liên hệ hotline hoặc truy cập website để biết thông tin chi tiết và đặt dịch vụ.</p>
+      <p class="service-note-vj"><strong>Lưu ý:</strong> Để thêm dịch vụ, bạn cần đăng nhập và có Mã đặt chỗ đã được xác nhận.</p>
     </section>
   </main>
 
   <script>
-    const selectButtons = document.querySelectorAll(".select-service-btn");
-    selectButtons.forEach(button => {
-      button.addEventListener("click", function () {
-        const serviceName = this.getAttribute('data-service');
-        alert(`Chức năng chọn dịch vụ "${serviceName}" chưa kết nối backend. Chờ em thêm thời gian nha <3.`);
-      });
+    document.addEventListener('DOMContentLoaded', async function() {
+        const container = document.getElementById('service-grid-container');
+        const iconMap = {
+            'baggage': 'fa-suitcase-rolling', 'seat_preference': 'fa-chair',
+            'insurance': 'fa-shield-alt', 'priority_services': 'fa-star',
+            'airport_transfer': 'fa-car', 'in_flight_entertainment': 'fa-film',
+            'default': 'fa-concierge-bell'
+        };
+
+        // Hàm xử lý khi nhấn nút "Chọn dịch vụ"
+        async function handleSelectService(event) {
+            const button = event.target;
+            const serviceId = button.dataset.serviceId;
+            const serviceName = button.dataset.serviceName;
+
+            const pnr = prompt(`Vui lòng nhập Mã đặt chỗ (PNR) của bạn để thêm dịch vụ "${serviceName}":`);
+            
+            if (!pnr || pnr.trim() === '') {
+                alert("Vui lòng nhập Mã đặt chỗ.");
+                return;
+            }
+
+            button.textContent = 'Đang xử lý...';
+            button.disabled = true;
+
+            try {
+                const response = await fetch('/api/bookings/add-ancillary-service', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pnr: pnr, service_id: serviceId })
+                });
+
+                const result = await response.json();
+
+                if (response.ok && result.success) {
+                    alert(result.message);
+                    // Chuyển hướng đến trang thanh toán
+                    window.location.href = result.redirect_url;
+                } else {
+                    alert("Lỗi: " + result.message);
+                    button.textContent = 'Chọn dịch vụ';
+                    button.disabled = false;
+                }
+
+            } catch (error) {
+                console.error("Lỗi khi thêm dịch vụ:", error);
+                alert("Lỗi kết nối. Vui lòng thử lại.");
+                button.textContent = 'Chọn dịch vụ';
+                button.disabled = false;
+            }
+        }
+
+        // Tải và hiển thị danh sách dịch vụ
+        try {
+            const response = await fetch('/api/ancillary-services');
+            const data = await response.json();
+
+            if (data.success && data.services) {
+                container.innerHTML = '';
+                if (data.services.length === 0) {
+                    container.innerHTML = '<p>Hiện chưa có dịch vụ nào.</p>';
+                    return;
+                }
+
+                data.services.forEach(service => {
+                    const priceVND = (service.price_vnd || 0).toLocaleString('vi-VN');
+                    const priceUSD = service.price_usd ? ` / $${service.price_usd.toFixed(2)}` : '';
+                    const iconClass = iconMap[service.category] || iconMap['default'];
+
+                    const cardHTML = `
+                        <div class="service-card-vj">
+                            <div class="service-card-content-vj">
+                                <div class="service-icon-top-vj"><i class="fas ${iconClass}"></i></div> 
+                                <h3>${service.name}</h3>
+                                <p class="service-description-vj">${service.description || ''}</p>
+                                <p class="service-price-vj">Giá: ${priceVND} VND${priceUSD}</p>
+                                <button class="action-btn-vj primary-btn-vj select-service-btn" data-service-id="${service.id}" data-service-name="${service.name}">Chọn dịch vụ</button>
+                            </div>
+                        </div>
+                    `;
+                    container.insertAdjacentHTML('beforeend', cardHTML);
+                });
+                
+                document.querySelectorAll(".select-service-btn").forEach(button => {
+                    button.addEventListener("click", handleSelectService);
+                });
+
+            } else {
+                container.innerHTML = '<p>Không thể tải danh sách dịch vụ.</p>';
+            }
+        } catch (error) {
+            console.error("Lỗi tải dịch vụ:", error);
+            container.innerHTML = '<p>Lỗi kết nối máy chủ. Vui lòng thử lại sau.</p>';
+        }
     });
   </script>
 </body>
