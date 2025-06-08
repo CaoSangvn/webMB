@@ -260,3 +260,15 @@
         padding: 20px;
     }
 }
+/* === SỬA LỖI XUỐNG DÒNG TRONG BẢNG CHUYẾN BAY === */
+
+#flightsTable td, 
+#flightsTable th {
+    white-space: nowrap; /* Ngăn không cho nội dung tự động xuống dòng */
+    vertical-align: middle; /* Căn giữa nội dung theo chiều dọc cho đẹp hơn */
+}
+
+#flightsTable .btn-action-group {
+    display: flex; /* Đảm bảo các nút trong cột Hành động nằm trên một hàng */
+    gap: 5px;
+}

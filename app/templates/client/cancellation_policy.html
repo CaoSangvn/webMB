@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chính sách Hoàn hủy - SangAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about_us.css') }}" /> </head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+            </div>
+            <nav>
+                <ul class="menu">
+                    <li><a href="{{ url_for('client_bp.my_flights_page') }}">CHUYẾN BAY CỦA TÔI</a></li>
+                    <li><a href="{{ url_for('client_bp.online_checkin_page') }}">ONLINE CHECK-IN</a></li>
+                    <li><a href="{{ url_for('client_bp.e_menu_page') }}">E-MENU</a></li>
+                    <li><a href="{{ url_for('client_bp.flight_services_page') }}">DỊCH VỤ CHUYẾN BAY</a></li>
+                </ul>
+            </nav>
+            <div class="auth-links">
+                {% if current_user_name %}
+                    <span class="welcome-message">Chào, {{ current_user_name }}!</span>
+                    <a href="{{ url_for('client_bp.logout_user') }}">Đăng xuất</a>
+                {% else %}
+                    <a href="{{ url_for('client_bp.register_page') }}">Đăng ký</a>
+                    <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="about-us-container">
+            <h1>Chính sách Hoàn/Hủy vé</h1>
+            <p class="lead">Các quy định về việc hoàn và hủy vé tại SangAir.</p>
+
+            <div class="about-section">
+                <h2>1. Điều kiện Hoàn vé</h2>
+                <p>Việc hoàn vé chỉ áp dụng cho một số hạng vé nhất định và phải được thực hiện trước thời điểm khởi hành ít nhất 24 giờ. Phí hoàn vé sẽ được áp dụng tùy theo điều kiện của hạng vé đã mua. Vé khuyến mãi, giảm giá đặc biệt có thể không được phép hoàn.</p>
+            </div>
+
+            <div class="about-section">
+                <h2>2. Quy trình Hủy vé</h2>
+                <p>Để hủy vé, hành khách vui lòng truy cập mục "Chuyến bay của tôi" và làm theo hướng dẫn, hoặc liên hệ trực tiếp với tổng đài hỗ trợ 1900 1234. Yêu cầu hủy vé phải được thực hiện bởi người có tên trên vé hoặc người thực hiện đặt chỗ.</p>
+            </div>
+        </div>
+    </main>
+
+    </body>
+</html>

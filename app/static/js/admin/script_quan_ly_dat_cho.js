@@ -1,6 +1,6 @@
 // app/static/js/admin/script_quan_ly_dat_cho.js
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Booking Management Script Loaded - API Integrated!");
+    console.log("Booking Management Script Loaded - API Integrated and Corrected!");
 
     const bookingsTableBody = document.getElementById('bookingsTableBody');
     const bookingSearchInput = document.getElementById('bookingSearchInput');
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const bookingDetailModal = document.getElementById('bookingDetailModal');
     const closeBookingDetailModalBtn = document.getElementById('closeBookingDetailModalBtn');
-    const bookingDetailModalTitleSpan = document.getElementById('detailPnr'); 
+    const bookingDetailModalTitleSpan = document.getElementById('detailPnr');
     const bookingDetailContent = document.getElementById('bookingDetailContent');
     const printBookingBtn = document.getElementById('printBookingBtn');
     const editBookingStatusBtn = document.getElementById('editBookingStatusBtn');
@@ -25,16 +25,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const hiddenEditBookingIdInput = document.getElementById('editBookingId');
 
     let allBookingsData = [];
-    let currentEditingBookingId = null; 
+    let currentEditingBookingId = null;
 
     const statusMapping = {
         "confirmed": { text: "Đã xác nhận", class: "status-confirmed" },
         "pending_payment": { text: "Chờ thanh toán", class: "status-pending_payment" },
         "payment_received": { text: "Đã thanh toán", class: "status-payment_received" },
         "cancelled_by_user": { text: "Khách hủy", class: "status-cancelled_by_user" },
-        "cancelled_by_airline": { text: "Admin hủy", class: "status-cancelled_by_airline" },
+        "cancelled_by_airline": { text: "Hãng hủy", class: "status-cancelled_by_airline" },
         "completed": { text: "Đã hoàn thành", class: "status-completed" },
-        "no_show": { text: "Khách không đến", class: "status-no_show" }
+        "no_show": { text: "Không đến", class: "status-no_show" },
+        "changed": "Đã thay đổi",
+        "paid": "Đã thanh toán"
     };
 
     function formatCurrency(amount) {
@@ -59,7 +61,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderBookingsTable(bookingsToRender) {
         if (!bookingsTableBody) return;
-        bookingsTableBody.innerHTML = ''; 
+        bookingsTableBody.innerHTML = '';
         if (!bookingsToRender || bookingsToRender.length === 0) {
             bookingsTableBody.innerHTML = '<tr><td colspan="9" style="text-align:center;">Không có đặt chỗ nào.</td></tr>';
             return;
@@ -68,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         bookingsToRender.forEach(booking => {
             const row = bookingsTableBody.insertRow();
             const statusInfo = statusMapping[booking.booking_status] || { text: booking.booking_status, class: '' };
-            
+
             row.innerHTML = `
                 <td>${booking.pnr || 'N/A'}</td>
                 <td>${booking.passenger_name || 'N/A'}</td>
@@ -81,6 +83,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <td class="btn-action-group">
                     <button class="btn btn-sm btn-view-detail" data-booking-id="${booking.booking_id}"><i class="fas fa-eye"></i> Xem</button>
                     <button class="btn btn-sm btn-edit-booking" data-booking-id="${booking.booking_id}" data-pnr="${booking.pnr}" data-current-status="${booking.booking_status}"><i class="fas fa-edit"></i> Sửa TT</button>
+                    <button class="btn btn-sm btn-delete-booking" data-booking-id="${booking.booking_id}" data-pnr="${booking.pnr}"><i class="fas fa-trash"></i> Xóa</button>
                 </td>
             `;
         });
@@ -89,50 +92,108 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function attachActionListenersToBookingTable() {
         if (!bookingsTableBody) return;
-        
+
         bookingsTableBody.querySelectorAll('.btn-view-detail').forEach(btn => {
             btn.addEventListener('click', function() {
                 openBookingDetailModal(this.dataset.bookingId);
             });
         });
+        
         bookingsTableBody.querySelectorAll('.btn-edit-booking').forEach(btn => {
             btn.addEventListener('click', function() {
                 openEditBookingStatusModal(this.dataset.bookingId, this.dataset.pnr, this.dataset.currentStatus);
+            });
+        });
+        
+        bookingsTableBody.querySelectorAll('.btn-delete-booking').forEach(btn => {
+            btn.addEventListener('click', async function() {
+                const bookingId = this.dataset.bookingId;
+                const pnr = this.dataset.pnr;
+
+                if (confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN đặt chỗ có mã ${pnr} không?`)) {
+                    try {
+                        const response = await fetch(`/admin/api/bookings/${bookingId}`, {
+                            method: 'DELETE',
+                        });
+                        const result = await response.json();
+                        alert(result.message);
+                        if (result.success) {
+                            fetchBookings(bookingSearchInput.value, bookingStatusFilter.value, flightDateFilter.value);
+                        }
+                    } catch (error) {
+                        console.error("Lỗi khi xóa đặt chỗ:", error);
+                        alert("Lỗi kết nối khi thực hiện yêu cầu xóa.");
+                    }
+                }
             });
         });
     }
 
     async function openBookingDetailModal(bookingId) {
         if (!bookingDetailModal || !bookingDetailContent || !bookingDetailModalTitleSpan) return;
-        
+
         bookingDetailContent.innerHTML = '<p>Đang tải chi tiết...</p>';
         bookingDetailModal.style.display = 'flex';
-        
+
         try {
-            const response = await fetch(`/api/bookings/${bookingId}`);
+            const response = await fetch(`/admin/api/bookings/${bookingId}`);
             const result = await response.json();
-            if (response.ok && result.success) {
-                const booking = result.booking; 
-                bookingDetailModalTitleSpan.textContent = booking.pnr;
-                // (Phần render chi tiết vào bookingDetailContent giữ nguyên như file của bạn)
-                // ...
-                if (editBookingStatusBtn) editBookingStatusBtn.dataset.bookingId = booking.id; 
+
+            if (response.ok && result.success && result.booking) {
+                const booking = result.booking;
+                bookingDetailModalTitleSpan.textContent = booking.pnr || booking.booking_code;
+
+                let passengerList = '<ul>';
+                if (booking.passengers && booking.passengers.length > 0) {
+                    booking.passengers.forEach(p => {
+                        passengerList += `<li>${p.full_name || 'N/A'} (${p.passenger_type || 'N/A'})</li>`;
+                    });
+                } else {
+                    passengerList += '<li>Không có thông tin hành khách.</li>';
+                }
+                passengerList += '</ul>';
+
+                bookingDetailContent.innerHTML = `
+                    <h4>Thông tin Chuyến bay</h4>
+                    <p><strong>Hành trình:</strong> ${booking.departure_iata || ''} → ${booking.arrival_iata || ''}</p>
+                    <p><strong>Khởi hành:</strong> ${booking.departure_datetime_formatted || booking.departure_time}</p>
+                    <p><strong>Hạ cánh:</strong> ${booking.arrival_datetime_formatted || booking.arrival_time}</p>
+                    <p><strong>Số hiệu:</strong> ${booking.flight_number || 'N/A'}</p>
+                    
+                    <h4>Thông tin Đặt chỗ</h4>
+                    <p><strong>Trạng thái:</strong> ${statusMapping[booking.booking_status]?.text || booking.booking_status}</p>
+                    <p><strong>Trạng thái thanh toán:</strong> ${booking.payment_status || 'N/A'}</p>
+                    <p><strong>Tổng tiền:</strong> ${formatCurrency(booking.total_amount)}</p>
+                    <p><strong>Hạng ghế:</strong> ${booking.seat_class_booked || 'N/A'}</p>
+
+                    <h4>Hành khách</h4>
+                    ${passengerList}
+
+                    <h4>Ghi chú</h4>
+                    <pre style="white-space: pre-wrap; background: #f4f4f4; padding: 10px; border-radius: 4px;">${booking.admin_notes || 'Không có ghi chú.'}</pre>
+                `;
+                
+                if (editBookingStatusBtn) {
+                     editBookingStatusBtn.dataset.bookingId = booking.id;
+                }
+
             } else {
-                bookingDetailContent.innerHTML = `<p class="error-message">${result.message || "Không thể tải chi tiết."}</p>`;
+                bookingDetailContent.innerHTML = `<p class="error-message">${result.message || "Không thể tải chi tiết đặt chỗ."}</p>`;
             }
         } catch (error) {
+            console.error("Lỗi khi tải chi tiết đặt chỗ:", error);
             bookingDetailContent.innerHTML = `<p class="error-message">Lỗi kết nối.</p>`;
         }
     }
 
     function openEditBookingStatusModal(bookingId, pnr, currentStatus) {
         if (!editBookingStatusModal) return;
-        
-        currentEditingBookingId = bookingId; 
+
+        currentEditingBookingId = bookingId;
         if (editStatusPnrDisplay) editStatusPnrDisplay.textContent = pnr;
         if (hiddenEditBookingIdInput) hiddenEditBookingIdInput.value = bookingId;
         if (newBookingStatusSelect) newBookingStatusSelect.value = currentStatus;
-        if (adminNotesTextarea) adminNotesTextarea.value = ''; 
+        if (adminNotesTextarea) adminNotesTextarea.value = '';
         editBookingStatusModal.style.display = 'flex';
     }
 
@@ -143,19 +204,21 @@ document.addEventListener('DOMContentLoaded', function() {
     if (closeBookingDetailModalBtn) closeBookingDetailModalBtn.addEventListener('click', () => closeModal(bookingDetailModal));
     if (closeEditStatusModalBtn) closeEditStatusModalBtn.addEventListener('click', () => closeModal(editBookingStatusModal));
     if (cancelEditStatusBtn) cancelEditStatusBtn.addEventListener('click', () => closeModal(editBookingStatusModal));
-    
+
     window.addEventListener('click', function(event) {
         if (event.target == bookingDetailModal) closeModal(bookingDetailModal);
         if (event.target == editBookingStatusModal) closeModal(editBookingStatusModal);
     });
-    
-    if (editBookingStatusBtn) { 
+
+    if (editBookingStatusBtn) {
         editBookingStatusBtn.addEventListener('click', function() {
             const bookingId = this.dataset.bookingId;
             const bookingToEdit = allBookingsData.find(b => b.booking_id == bookingId);
             if (bookingToEdit) {
                 closeModal(bookingDetailModal);
                 openEditBookingStatusModal(bookingId, bookingToEdit.pnr, bookingToEdit.booking_status);
+            } else {
+                alert("Không tìm thấy thông tin đặt chỗ để sửa. Vui lòng làm mới trang.");
             }
         });
     }
@@ -171,34 +234,35 @@ document.addEventListener('DOMContentLoaded', function() {
             if (notes) payload.adminNotes = notes;
 
             try {
-                const response = await fetch(`/api/bookings/${bookingId}/status`, {
+                const response = await fetch(`/admin/api/bookings/${bookingId}/status`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(payload)
                 });
                 const result = await response.json();
                 if (response.ok && result.success) {
-                    alert(result.message);
+                    alert(result.message || "Cập nhật thành công!");
+                    closeModal(editBookingStatusModal);
                     fetchBookings(bookingSearchInput.value, bookingStatusFilter.value, flightDateFilter.value);
                 } else {
-                    alert("Lỗi: " + result.message);
+                    alert("Lỗi: " + (result.message || "Không thể cập nhật."));
                 }
             } catch (error) {
+                console.error("Lỗi khi cập nhật trạng thái:", error);
                 alert("Lỗi kết nối khi cập nhật.");
             }
-            closeModal(editBookingStatusModal);
         });
     }
-    
+
     function filterAndSearchBookings() {
         fetchBookings(
             bookingSearchInput.value.trim(),
             bookingStatusFilter.value,
             flightDateFilter.value
-        ); 
+        );
     }
 
     if (applyBookingFilterBtn) applyBookingFilterBtn.addEventListener('click', filterAndSearchBookings);
-    
+
     fetchBookings();
 });

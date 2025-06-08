@@ -474,3 +474,48 @@ def cancel_booking_api():
     except Exception as e:
         current_app.logger.error(f"API Cancel Booking Error: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
+def get_new_users_count_24h():
+    """Đếm số lượng người dùng đăng ký trong vòng 24 giờ qua."""
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM users WHERE created_at >= datetime('now', '-24 hours')"
+        result = conn.execute(query).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()
+def get_new_customers_count_in_range(start_date, end_date):
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM users WHERE date(created_at) BETWEEN ? AND ?"
+        result = conn.execute(query, (start_date, end_date)).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()
+@client_bp.route('/dieu-khoan-su-dung')
+def terms_of_use_page():
+    current_user_name = session.get('user_name')
+    return render_template("client/terms_of_use.html", current_user_name=current_user_name)
+
+@client_bp.route('/huong-dan-dat-ve')
+def booking_guide_page():
+    current_user_name = session.get('user_name')
+    return render_template("client/booking_guide.html", current_user_name=current_user_name)
+@client_bp.route('/about-us')
+def about_us_page():
+    # Lấy thông tin người dùng đang đăng nhập để hiển thị trên header
+    current_user_name = None
+    if 'user_id' in session:
+        user = client_model.get_user_by_id(session['user_id'])
+        if user:
+            current_user_name = user['full_name']
+            
+    return render_template("client/about_us.html", current_user_name=current_user_name)
+@client_bp.route('/chinh-sach-hoan-huy')
+def cancellation_policy_page():
+    current_user_name = session.get('user_name')
+    return render_template("client/cancellation_policy.html", current_user_name=current_user_name)
+
+@client_bp.route('/chinh-sach-hanh-ly')
+def baggage_policy_page():
+    current_user_name = session.get('user_name')
+    return render_template("client/baggage_policy.html", current_user_name=current_user_name)

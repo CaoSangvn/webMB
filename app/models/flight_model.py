@@ -158,27 +158,22 @@ def combine_datetime_str(date_str, time_str):
     return None
 
 
-def create_flight(flight_data): # Sẽ không nhận flight_number, aircraft_type từ flight_data nữa
+def create_flight(flight_data):
+    """Tạo một chuyến bay mới với logic được đơn giản hóa và chính xác."""
     conn = _get_db_connection()
     try:
-        conn.execute("BEGIN") 
+        conn.execute("BEGIN")
 
         departure_datetime_iso = combine_datetime_str(flight_data.get('departureDate'), flight_data.get('departureTime'))
         arrival_datetime_iso = combine_datetime_str(flight_data.get('arrivalDate'), flight_data.get('arrivalTime'))
 
-        if not departure_datetime_iso or not arrival_datetime_iso:
-            raise ValueError("Ngày giờ đi hoặc đến không được để trống hoặc không hợp lệ.")
+        if not all([departure_datetime_iso, arrival_datetime_iso, 
+                    flight_data.get('departure_airport_id'), flight_data.get('arrival_airport_id'),
+                    flight_data.get('basePrice') is not None, flight_data.get('total_seats') is not None]):
+            raise ValueError("Thiếu thông tin bắt buộc: sân bay, ngày giờ, giá vé hoặc số ghế.")
 
-        # Các giá trị khác từ flight_data
-        departure_airport_id = flight_data['departure_airport_id']
-        arrival_airport_id = flight_data['arrival_airport_id']
-        economy_price = float(flight_data.get('basePrice', 0))
-        business_price = float(flight_data.get('business_price', 0))
-        first_class_price = float(flight_data.get('first_class_price', 0))
         total_seats = int(flight_data['total_seats'])
-        status = 'scheduled' # Mặc định
         
-        # Bỏ aircraft_type
         cursor = conn.execute(
             """
             INSERT INTO flights (flight_number, departure_airport_id, arrival_airport_id, 
@@ -187,12 +182,17 @@ def create_flight(flight_data): # Sẽ không nhận flight_number, aircraft_typ
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
             """,
             (
-                "TEMP_FN", # Giá trị tạm thời cho flight_number
-                departure_airport_id, arrival_airport_id,
-                departure_datetime_iso, arrival_datetime_iso,
-                economy_price, business_price, first_class_price,
-                total_seats, total_seats, 
-                status
+                "TBA",
+                flight_data['departure_airport_id'],
+                flight_data['arrival_airport_id'],
+                departure_datetime_iso,
+                arrival_datetime_iso,
+                float(flight_data['basePrice']),
+                float(flight_data.get('business_price', 0)),
+                float(flight_data.get('first_class_price', 0)),
+                total_seats,
+                total_seats,
+                'scheduled'
             )
         )
         flight_id = cursor.lastrowid
@@ -200,29 +200,17 @@ def create_flight(flight_data): # Sẽ không nhận flight_number, aircraft_typ
             raise sqlite3.Error("Không lấy được ID chuyến bay vừa tạo.")
 
         auto_flight_number = f"SA{flight_id}"
-        conn.execute(
-            "UPDATE flights SET flight_number = ? WHERE id = ?",
-            (auto_flight_number, flight_id)
-        )
+        conn.execute("UPDATE flights SET flight_number = ? WHERE id = ?", (auto_flight_number, flight_id))
         
         conn.commit()
-        current_app.logger.info(f"MODEL: Flight created with ID: {flight_id}, Auto Number: {auto_flight_number}")
-        return flight_id 
-    except sqlite3.Error as e:
-        current_app.logger.error(f"MODEL: Database error creating flight - {e}. Data: {flight_data}")
+        current_app.logger.info(f"MODEL: Đã tạo chuyến bay ID: {flight_id}, Số hiệu: {auto_flight_number}")
+        return flight_id
+    except (sqlite3.Error, ValueError) as e:
         if conn: conn.rollback()
-        raise 
-    except ValueError as ve:
-        current_app.logger.error(f"MODEL: ValueError creating flight - {ve}. Data: {flight_data}")
-        if conn: conn.rollback()
-        raise
-    except Exception as e:
-        current_app.logger.error(f"MODEL: Unexpected error creating flight - {e}. Data: {flight_data}", exc_info=True)
-        if conn: conn.rollback()
+        current_app.logger.error(f"MODEL: Lỗi khi tạo chuyến bay - {e}. Dữ liệu: {flight_data}", exc_info=True)
         raise
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
 
 def get_all_flights_admin():
     conn = _get_db_connection()
@@ -308,80 +296,53 @@ def get_flight_by_id_admin(flight_id):
             conn.close()
 
 def update_flight(flight_id, flight_data):
+    """Cập nhật thông tin chuyến bay với logic được làm sạch và chính xác."""
     conn = _get_db_connection()
     try:
-        # ... (logic combine_datetime_str giữ nguyên) ...
-        departure_datetime_iso = None
-        if flight_data.get('departureDate') and flight_data.get('departureTime'):
-            departure_datetime_iso = combine_datetime_str(flight_data.get('departureDate'), flight_data.get('departureTime'))
-            if not departure_datetime_iso:
-                 raise ValueError("Ngày hoặc giờ đi không hợp lệ cho việc cập nhật.")
+        allowed_columns = {
+            'departure_airport_id', 'arrival_airport_id', 'economy_price',
+            'business_price', 'first_class_price', 'total_seats', 'available_seats', 'status'
+        }
         
-        arrival_datetime_iso = None
-        if flight_data.get('arrivalDate') and flight_data.get('arrivalTime'):
-            arrival_datetime_iso = combine_datetime_str(flight_data.get('arrivalDate'), flight_data.get('arrivalTime'))
-            if not arrival_datetime_iso:
-                 raise ValueError("Ngày hoặc giờ đến không hợp lệ cho việc cập nhật.")
-
         fields_to_update_sql = []
         params = []
         
-        # Bỏ aircraft_type và không cho phép cập nhật flight_number
-        possible_db_fields = {
-            # 'flight_number': flight_data.get('flight_number'), -- KHÔNG CHO SỬA SỐ HIỆU
-            # 'aircraft_type': flight_data.get('aircraft_type'), -- BỎ LOẠI MÁY BAY
-            'departure_airport_id': flight_data.get('departure_airport_id'),
-            'arrival_airport_id': flight_data.get('arrival_airport_id'),
-            'economy_price': flight_data.get('economy_price'),
-            'business_price': flight_data.get('business_price'),
-            'first_class_price': flight_data.get('first_class_price'),
-            'total_seats': flight_data.get('total_seats'),
-            'available_seats': flight_data.get('available_seats'),
-            'status': flight_data.get('status')
-        }
+        if 'departureDate' in flight_data and 'departureTime' in flight_data:
+            flight_data['departure_time'] = combine_datetime_str(flight_data.pop('departureDate'), flight_data.pop('departureTime'))
+            allowed_columns.add('departure_time')
 
-        if departure_datetime_iso:
-            possible_db_fields['departure_time'] = departure_datetime_iso
-        if arrival_datetime_iso:
-            possible_db_fields['arrival_time'] = arrival_datetime_iso
+        if 'arrivalDate' in flight_data and 'arrivalTime' in flight_data:
+            flight_data['arrival_time'] = combine_datetime_str(flight_data.pop('arrivalDate'), flight_data.pop('arrivalTime'))
+            allowed_columns.add('arrival_time')
 
-        for column_name, value in possible_db_fields.items():
-            if value is not None:
+        for column_name, value in flight_data.items():
+            if column_name in allowed_columns and value is not None:
+                if isinstance(value, str) and not value.strip():
+                    continue
+                
                 fields_to_update_sql.append(f"{column_name} = ?")
                 params.append(value)
         
         if not fields_to_update_sql:
-            return True 
+            current_app.logger.warning(f"Không có trường hợp lệ để cập nhật cho chuyến bay ID {flight_id}.")
+            return True
 
-        params.append(datetime.now().isoformat()) 
+        params.append(datetime.now().isoformat())
         params.append(flight_id)
         
         query = f"UPDATE flights SET {', '.join(fields_to_update_sql)}, updated_at = ? WHERE id = ?"
-        current_app.logger.debug(f"Executing update query: {query} with params: {tuple(params)}")
+        
+        current_app.logger.debug(f"Thực thi câu lệnh cập nhật chuyến bay: {query} với params: {tuple(params)}")
         
         conn.execute(query, tuple(params))
         conn.commit()
         return True
-    # ... (các khối except giữ nguyên) ...
-    except sqlite3.Error as e:
-        print(f"Database error updating flight {flight_id}: {e}")
-        current_app.logger.error(f"Database error updating flight {flight_id}: {e}")
-        if conn: conn.rollback()
-        raise 
-    except ValueError as ve:
-        print(f"Data error updating flight {flight_id}: {ve}")
-        current_app.logger.error(f"Data error updating flight {flight_id}: {ve}")
-        if conn: conn.rollback()
-        raise
     except Exception as e:
-        print(f"Unexpected error updating flight {flight_id}: {e}")
-        current_app.logger.error(f"Unexpected error updating flight {flight_id}: {e}")
         if conn: conn.rollback()
+        current_app.logger.error(f"MODEL: Lỗi không mong muốn khi cập nhật chuyến bay {flight_id}: {e}", exc_info=True)
         raise
     finally:
-        if conn:
-            conn.close()
-            
+        if conn: conn.close()
 
 def delete_flight(flight_id):
     conn = _get_db_connection()
@@ -429,3 +390,25 @@ def delete_flight(flight_id):
     finally:
         if conn:
             conn.close()
+def get_upcoming_flights_count():
+    """Đếm số chuyến bay có trạng thái 'scheduled' hoặc 'on_time' từ thời điểm hiện tại trở đi."""
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT COUNT(id) as count
+            FROM flights
+            WHERE departure_time >= datetime('now', 'localtime')
+            AND status IN ('scheduled', 'on_time')
+        """
+        result = conn.execute(query).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()
+def get_active_flights_count_in_range(start_date, end_date):
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM flights WHERE date(departure_time) BETWEEN ? AND ? AND status IN ('scheduled', 'on_time', 'departed', 'landed')"
+        result = conn.execute(query, (start_date, end_date)).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()

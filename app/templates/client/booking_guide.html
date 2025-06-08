@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hướng dẫn đặt vé - SangAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about_us.css') }}" />
+</head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+            </div>
+            <nav>
+                <ul class="menu">
+                    <li><a href="{{ url_for('client_bp.my_flights_page') }}">CHUYẾN BAY CỦA TÔI</a></li>
+                    <li><a href="{{ url_for('client_bp.online_checkin_page') }}">ONLINE CHECK-IN</a></li>
+                    <li><a href="{{ url_for('client_bp.e_menu_page') }}">E-MENU</a></li>
+                    <li><a href="{{ url_for('client_bp.flight_services_page') }}">DỊCH VỤ CHUYẾN BAY</a></li>
+                </ul>
+            </nav>
+            <div class="auth-links">
+                {% if current_user_name %}
+                    <span class="welcome-message">Chào, {{ current_user_name }}!</span>
+                    <a href="{{ url_for('client_bp.logout_user') }}">Đăng xuất</a>
+                {% else %}
+                    <a href="{{ url_for('client_bp.register_page') }}">Đăng ký</a>
+                    <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="about-us-container">
+            <h1>Hướng dẫn đặt vé</h1>
+            <p class="lead">Đặt vé dễ dàng với 4 bước đơn giản cùng SangAir.</p>
+
+            <div class="about-section">
+                <h2>Bước 1: Tìm kiếm chuyến bay</h2>
+                <p>Tại trang chủ, nhập điểm đi, điểm đến, ngày bay và số lượng hành khách. Sau đó nhấn nút "Tìm chuyến bay" để xem các lựa chọn phù hợp.</p>
+            </div>
+
+            <div class="about-section">
+                <h2>Bước 2: Chọn chuyến bay và dịch vụ</h2>
+                <p>Chọn chuyến bay có giờ khởi hành và giá vé phù hợp với bạn. Ở bước tiếp theo, bạn có thể lựa chọn các dịch vụ cộng thêm như hành lý ký gửi, chọn chỗ ngồi, suất ăn...</p>
+            </div>
+
+            <div class="about-section">
+                <h2>Bước 3: Điền thông tin hành khách</h2>
+                <p>Điền đầy đủ và chính xác thông tin của tất cả các hành khách trong chuyến bay theo yêu cầu. Vui lòng kiểm tra kỹ họ tên và ngày sinh để tránh các vấn đề khi làm thủ tục.</p>
+            </div>
+            
+             <div class="about-section">
+                <h2>Bước 4: Thanh toán và nhận vé điện tử</h2>
+                <p>Lựa chọn phương thức thanh toán thuận tiện và hoàn tất giao dịch. Sau khi thanh toán thành công, vé điện tử và thông tin đặt chỗ sẽ được gửi đến email của bạn.</p>
+            </div>
+        </div>
+    </main>
+
+    </body>
+</html>

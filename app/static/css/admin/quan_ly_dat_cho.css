@@ -253,3 +253,11 @@
         margin-bottom: 3px;
     }
 }
+#bookingsTable .btn-delete-booking {
+    background-color: #dc3545;
+    color: white;
+    border: none;
+}
+#bookingsTable .btn-delete-booking:hover {
+    background-color: #c82333;
+}

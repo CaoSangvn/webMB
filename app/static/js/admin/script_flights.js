@@ -281,7 +281,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.success && data.flight) {
                     const flightData = data.flight;
                     // Điền dữ liệu vào form
-                    document.getElementById('flightNumber').value = flightData.flight_number;
+                    
                     // document.getElementById('aircraftType').value = flightData.aircraft_type || ''; // Bỏ nếu đã xóa
                     
                     if (departureAirportSelect) departureAirportSelect.value = flightData.departure_airport_iata; 

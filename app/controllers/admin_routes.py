@@ -2,7 +2,7 @@
 from flask import Blueprint, render_template, session, redirect, url_for, current_app, request, jsonify
 from functools import wraps
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 from werkzeug.utils import secure_filename
 
@@ -47,44 +47,42 @@ def admin_required(f):
 @admin_bp.route('/dashboard')
 @admin_required
 def dashboard():
-    return render_template('admin/dashboard.html')
+    return render_template('dashboard.html')
 
 @admin_bp.route('/flights')
 @admin_required
 def flights():
-    return render_template('admin/flights.html')
+    return render_template('flights.html')
 
 @admin_bp.route('/bookings')
 @admin_required
 def quan_ly_dat_cho():
-    return render_template('admin/quan_ly_dat_cho.html')
+    return render_template('quan_ly_dat_cho.html')
 
 @admin_bp.route('/users')
 @admin_required
 def quan_ly_nguoi_dung():
-    return render_template('admin/quan_ly_nguoi_dung.html')
+    return render_template('quan_ly_nguoi_dung.html')
 
 @admin_bp.route('/homepage-notifications')
 @admin_required
 def quan_ly_thong_bao_trang_chu():
-    return render_template('admin/quan_ly_thong_bao_trang_chu.html')
+    return render_template('quan_ly_thong_bao_trang_chu.html')
 
 @admin_bp.route('/emenu-management')
 @admin_required
 def quan_ly_e_menu():
-    return render_template('admin/quan_ly_e_menu.html')
+    return render_template('quan_ly_e_menu.html')
     
 @admin_bp.route('/services')
 @admin_required
 def quan_ly_dich_vu():
-    return render_template('admin/quan_ly_dich_vu.html')
+    return render_template('quan_ly_dich_vu.html')
 
-@admin_bp.route('/reports')
-@admin_required
-def bao_cao_thong_ke():
-    return render_template('admin/bao_cao_thong_ke.html')
+#@admin_bp.route('/reports')
+#@admin_required
+##return render_template('bao_cao_thong_ke.html')
     
-
 # --- ================================== ---
 # ---           CÁC API CHO ADMIN        ---
 # --- ================================== ---
@@ -97,39 +95,92 @@ def api_admin_get_all_flights():
         flights_data = flight_model.get_all_flights_admin()
         return jsonify({"success": True, "flights": flights_data}), 200
     except Exception as e:
+        current_app.logger.error(f"API Error get_all_flights: {e}", exc_info=True)
         return jsonify({"success": False, "message": f"Lỗi máy chủ: {e}"}), 500
+
+@admin_bp.route('/api/flights/<int:flight_id>', methods=['GET'])
+@admin_required
+def api_admin_get_flight(flight_id):
+    try:
+        flight = flight_model.get_flight_by_id_admin(flight_id)
+        if flight:
+            return jsonify({"success": True, "flight": flight}), 200
+        return jsonify({"success": False, "message": "Không tìm thấy chuyến bay."}), 404
+    except Exception as e:
+        current_app.logger.error(f"API Error get_flight {flight_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ"}), 500
 
 @admin_bp.route('/api/flights', methods=['POST'])
 @admin_required
 def api_admin_create_flight():
     data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Dữ liệu không hợp lệ."}), 400
+
     try:
-        flight_id = flight_model.create_flight(data)
+        departure_airport_id = airport_model.get_airport_id_by_iata_code(data.get('departureAirport'))
+        arrival_airport_id = airport_model.get_airport_id_by_iata_code(data.get('arrivalAirport'))
+
+        if not departure_airport_id or not arrival_airport_id:
+            return jsonify({"success": False, "message": "Mã sân bay đi hoặc đến không hợp lệ."}), 400
+
+        mapped_data = {
+            'departure_airport_id': departure_airport_id,
+            'arrival_airport_id': arrival_airport_id,
+            'departureDate': data.get('departureDate'),
+            'departureTime': data.get('departureTime'),
+            'arrivalDate': data.get('arrivalDate'),
+            'arrivalTime': data.get('arrivalTime'),
+            'basePrice': data.get('basePrice'),
+            'total_seats': data.get('totalSeats'),
+        }
+
+        flight_id = flight_model.create_flight(mapped_data)
         new_flight = flight_model.get_flight_by_id_admin(flight_id)
         return jsonify({"success": True, "message": "Tạo chuyến bay thành công!", "flight": new_flight}), 201
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 400
+        current_app.logger.error(f"API Error create_flight: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
 
-@admin_bp.route('/api/flights/<int:flight_id>', methods=['GET'])
-@admin_required
-def api_admin_get_flight(flight_id):
-    flight = flight_model.get_flight_by_id_admin(flight_id)
-    if flight:
-        return jsonify({"success": True, "flight": flight}), 200
-    return jsonify({"success": False, "message": "Không tìm thấy chuyến bay."}), 404
 
 @admin_bp.route('/api/flights/<int:flight_id>', methods=['PUT'])
 @admin_required
 def api_admin_update_flight(flight_id):
     data = request.get_json()
+    if not data:
+        return jsonify({"success": False, "message": "Dữ liệu không hợp lệ."}), 400
+        
     try:
-        success = flight_model.update_flight(flight_id, data)
+        departure_airport_id = airport_model.get_airport_id_by_iata_code(data.get('departureAirport'))
+        arrival_airport_id = airport_model.get_airport_id_by_iata_code(data.get('arrivalAirport'))
+
+        if not departure_airport_id or not arrival_airport_id:
+            return jsonify({"success": False, "message": "Mã sân bay đi hoặc đến không hợp lệ."}), 400
+
+        mapped_data = {
+            'departure_airport_id': departure_airport_id,
+            'arrival_airport_id': arrival_airport_id,
+            'departureDate': data.get('departureDate'),
+            'departureTime': data.get('departureTime'),
+            'arrivalDate': data.get('arrivalDate'),
+            'arrivalTime': data.get('arrivalTime'),
+            'economy_price': data.get('basePrice'),
+            'total_seats': data.get('totalSeats'),
+            'status': data.get('flightStatus'),
+        }
+
+        success = flight_model.update_flight(flight_id, mapped_data)
         if success:
             updated_flight = flight_model.get_flight_by_id_admin(flight_id)
             return jsonify({"success": True, "message": "Cập nhật thành công.", "flight": updated_flight}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
+        return jsonify({"success": False, "message": "Không thể cập nhật hoặc không có gì thay đổi."}), 400
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        current_app.logger.error(f"API Error update_flight {flight_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
 
 @admin_bp.route('/api/flights/<int:flight_id>', methods=['DELETE'])
 @admin_required
@@ -138,10 +189,13 @@ def api_admin_delete_flight(flight_id):
         success = flight_model.delete_flight(flight_id)
         if success:
             return jsonify({"success": True, "message": "Xóa thành công."}), 200
-        return jsonify({"success": False, "message": "Không thể xóa."}), 404
+        return jsonify({"success": False, "message": "Không thể xóa hoặc chuyến bay không tồn tại."}), 404
     except Exception as e:
+        current_app.logger.error(f"API Error delete_flight {flight_id}: {e}", exc_info=True)
         return jsonify({"success": False, "message": str(e)}), 500
 
+# Các API khác cho User, Booking, Menu, Service... (giữ nguyên như cũ)
+# ...
 # --- API Quản lý người dùng ---
 @admin_bp.route('/api/users', methods=['GET'])
 @admin_required
@@ -254,9 +308,12 @@ def api_admin_delete_booking(booking_id):
         success = booking_model.delete_booking_by_admin(booking_id)
         if success:
             return jsonify({"success": True, "message": "Xóa đặt chỗ thành công."}), 200
-        return jsonify({"success": False, "message": "Không thể xóa đặt chỗ."}), 404
+        else:
+            return jsonify({"success": False, "message": "Không tìm thấy đặt chỗ để xóa."}), 404
     except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
+        current_app.logger.error(f"API Error deleting booking {booking_id}: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ khi xóa đặt chỗ."}), 500
+    
 
 # --- API Quản lý E-Menu ---
 @admin_bp.route('/api/menu-items', methods=['GET'])
@@ -282,22 +339,42 @@ def api_admin_get_menu_item(item_id):
 @admin_bp.route('/api/menu-items', methods=['POST'])
 @admin_required
 def api_admin_create_menu_item():
-    if 'menuItemName' not in request.form:
-        return jsonify({"success": False, "message": "Thiếu tên món."}), 400
-    item_data = {key: request.form.get(key) for key in request.form}
+    if 'menuItemName' not in request.form or 'menuItemCategory' not in request.form or 'menuItemPriceVND' not in request.form or 'menuItemPriceUSD' not in request.form:
+        return jsonify({"success": False, "message": "Thiếu các trường thông tin bắt buộc (Tên, Danh mục, Giá)."}), 400
+
+    item_data = {
+        'name': request.form.get('menuItemName'),
+        'description': request.form.get('menuItemDescription'),
+        'category': request.form.get('menuItemCategory'),
+        'price_vnd': request.form.get('menuItemPriceVND'),
+        'price_usd': request.form.get('menuItemPriceUSD'),
+        'is_available': request.form.get('is_available', 1)
+    }
+
     image_url = None
     if 'menuItemImageFile' in request.files:
         file = request.files['menuItemImageFile']
         if file and file.filename != '' and allowed_file(file.filename):
-            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
-            file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
-            image_url = f"uploads/menu_images/{unique_filename}"
-    item_data['image_url'] = image_url
+            try:
+                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
+                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(upload_path)
+                image_url = os.path.join('uploads/menu_images', unique_filename).replace("\\", "/")
+            except Exception as e:
+                current_app.logger.error(f"Lỗi khi lưu file ảnh: {e}")
+                return jsonify({"success": False, "message": "Lỗi khi xử lý file ảnh."}), 500
+    
+    if image_url:
+        item_data['image_url'] = image_url
+
     try:
         item_id = menu_item_model.create_menu_item(item_data)
         new_item = menu_item_model.get_menu_item_by_id(item_id)
         return jsonify({"success": True, "message": "Thêm món thành công!", "menu_item": serialize_menu_item(new_item)}), 201
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
+        current_app.logger.error(f"Lỗi API khi tạo menu item: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @admin_bp.route('/api/menu-items/<int:item_id>', methods=['PUT'])
@@ -306,16 +383,38 @@ def api_admin_update_menu_item(item_id):
     item_to_update = menu_item_model.get_menu_item_by_id(item_id)
     if not item_to_update:
         return jsonify({"success": False, "message": "Không tìm thấy món để cập nhật."}), 404
-    data = {key: request.form.get(key) for key in request.form}
+        
+    mapped_data = {
+        'name': request.form.get('menuItemName'),
+        'description': request.form.get('menuItemDescription'),
+        'category': request.form.get('menuItemCategory'),
+        'price_vnd': request.form.get('menuItemPriceVND'),
+        'price_usd': request.form.get('menuItemPriceUSD'),
+        'is_available': request.form.get('is_available')
+    }
+    
     if 'menuItemImageFile' in request.files:
-        pass
+        file = request.files['menuItemImageFile']
+        if file and file.filename != '' and allowed_file(file.filename):
+            try:
+                unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
+                upload_path = os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename)
+                file.save(upload_path)
+                mapped_data['image_url'] = os.path.join('uploads/menu_images', unique_filename).replace("\\", "/")
+            except Exception as e:
+                current_app.logger.error(f"Lỗi khi lưu file ảnh (update): {e}")
+                return jsonify({"success": False, "message": "Lỗi khi xử lý file ảnh mới."}), 500
+
     try:
-        success = menu_item_model.update_menu_item(item_id, data)
+        success = menu_item_model.update_menu_item(item_id, mapped_data)
         if success:
             updated_item = menu_item_model.get_menu_item_by_id(item_id)
             return jsonify({"success": True, "message": "Cập nhật thành công.", "menu_item": serialize_menu_item(updated_item)}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
+        return jsonify({"success": False, "message": "Không thể cập nhật hoặc không có gì thay đổi."}), 400
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
+        current_app.logger.error(f"Lỗi API khi cập nhật menu item: {e}")
         return jsonify({"success": False, "message": str(e)}), 500
 
 @admin_bp.route('/api/menu-items/<int:item_id>', methods=['DELETE'])
@@ -448,3 +547,20 @@ def api_admin_delete_service(service_id):
         return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
         return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
+@admin_bp.route('/api/dashboard/stats', methods=['GET'])
+@admin_required
+def api_get_dashboard_stats():
+    """API để lấy các số liệu thống kê nhanh cho trang dashboard."""
+    try:
+        stats = {
+            'upcoming_flights': flight_model.get_upcoming_flights_count(),
+            'new_bookings_24h': booking_model.get_new_bookings_count_24h(),
+            'new_users_24h': client_model.get_new_users_count_24h(),
+            'monthly_revenue': booking_model.get_monthly_revenue()
+        }
+        return jsonify({"success": True, "stats": stats})
+    except Exception as e:
+        current_app.logger.error(f"API Error getting dashboard stats: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi khi tải dữ liệu thống kê."}), 500
+from datetime import datetime, timedelta # Đảm bảo đã import ở đầu tệp
+

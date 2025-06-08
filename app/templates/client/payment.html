@@ -88,7 +88,7 @@
 
 <script>
     // Truyền booking_id từ template vào JavaScript một cách an toàn
-    const bookingToPay = {{ booking.booking_id|tojson if booking else 'null' }};
+    const bookingToPay = {{ booking.id|tojson if booking else 'null' }};
 </script>
 <script src="{{ url_for('static', filename='js/payment_script.js') }}"></script>
 

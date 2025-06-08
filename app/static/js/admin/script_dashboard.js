@@ -1,31 +1,47 @@
 document.addEventListener('DOMContentLoaded', function() {
-    console.log("Admin Dashboard Script Loaded (Simplified)!");
+    console.log("Admin Dashboard Script Loaded! Fetching dynamic data...");
 
-    // Trong phiên bản đơn giản này, dashboard chủ yếu hiển thị thông tin tĩnh
-    // hoặc thông tin sẽ được cập nhật từ backend khi render trang.
-    // Nếu bạn cần cập nhật các con số bằng JavaScript (ví dụ: sau khi gọi API),
-    // bạn sẽ viết mã đó ở đây.
+    async function fetchDashboardStats() {
+        try {
+            const response = await fetch('/admin/api/dashboard/stats');
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
 
-    // Ví dụ, nếu bạn muốn lấy dữ liệu động cho các card:
-    // function fetchDashboardStats() {
-    //     // Giả sử gọi API
-    //     // fetch('/api/admin/dashboard-stats')
-    //     //     .then(response => response.json())
-    //     //     .then(data => {
-    //     //         const upcomingFlightsEl = document.getElementById('upcoming-flights-count');
-    //     //         if (upcomingFlightsEl) upcomingFlightsEl.textContent = data.upcomingFlights || 'N/A';
-                
-    //     //         const newBookingsEl = document.getElementById('new-bookings-count');
-    //     //         if (newBookingsEl) newBookingsEl.textContent = data.newBookingsToday || 'N/A';
-                
-    //     //         const newUsersEl = document.getElementById('new-users-count');
-    //     //         if (newUsersEl) newUsersEl.textContent = data.newUsers || 'N/A';
-                
-    //     //         const monthlyRevenueEl = document.getElementById('monthly-revenue');
-    //     //         if (monthlyRevenueEl) monthlyRevenueEl.textContent = data.monthlyRevenue ? data.monthlyRevenue.toLocaleString('vi-VN') + ' VND' : 'N/A';
-    //     //     })
-    //     //     .catch(error => console.error('Error fetching dashboard stats:', error));
-    // }
+            if (data.success && data.stats) {
+                const stats = data.stats;
 
-    // fetchDashboardStats(); // Gọi hàm khi trang tải xong
+                const upcomingFlightsEl = document.getElementById('upcoming-flights-count');
+                const newBookingsEl = document.getElementById('new-bookings-count');
+                const newUsersEl = document.getElementById('new-users-count');
+                const monthlyRevenueEl = document.getElementById('monthly-revenue');
+
+                if (upcomingFlightsEl) upcomingFlightsEl.textContent = stats.upcoming_flights;
+                if (newBookingsEl) newBookingsEl.textContent = stats.new_bookings_24h;
+                if (newUsersEl) newUsersEl.textContent = stats.new_users_24h;
+                
+                if (monthlyRevenueEl) {
+                    const revenue = stats.monthly_revenue || 0;
+                    if (revenue >= 1000000) {
+                        monthlyRevenueEl.textContent = `${(revenue / 1000000).toFixed(1).replace(/\.0$/, '')} Tr`;
+                    } else if (revenue >= 1000) {
+                        monthlyRevenueEl.textContent = `${Math.round(revenue / 1000)} K`;
+                    } else {
+                        monthlyRevenueEl.textContent = revenue.toLocaleString('vi-VN');
+                    }
+                }
+            } else {
+                console.error("Failed to fetch dashboard stats:", data.message);
+            }
+        } catch (error) {
+            console.error('Error fetching dashboard stats:', error);
+            document.getElementById('upcoming-flights-count').textContent = "Lỗi";
+            document.getElementById('new-bookings-count').textContent = "Lỗi";
+            document.getElementById('new-users-count').textContent = "Lỗi";
+            document.getElementById('monthly-revenue').textContent = "Lỗi";
+        }
+    }
+
+    fetchDashboardStats();
 });

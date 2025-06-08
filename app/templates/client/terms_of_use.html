@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Điều khoản sử dụng - SangAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about_us.css') }}" /> </head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+            </div>
+            <nav>
+                <ul class="menu">
+                    <li><a href="{{ url_for('client_bp.my_flights_page') }}">CHUYẾN BAY CỦA TÔI</a></li>
+                    <li><a href="{{ url_for('client_bp.online_checkin_page') }}">ONLINE CHECK-IN</a></li>
+                    <li><a href="{{ url_for('client_bp.e_menu_page') }}">E-MENU</a></li>
+                    <li><a href="{{ url_for('client_bp.flight_services_page') }}">DỊCH VỤ CHUYẾN BAY</a></li>
+                </ul>
+            </nav>
+            <div class="auth-links">
+                {% if current_user_name %}
+                    <span class="welcome-message">Chào, {{ current_user_name }}!</span>
+                    <a href="{{ url_for('client_bp.logout_user') }}">Đăng xuất</a>
+                {% else %}
+                    <a href="{{ url_for('client_bp.register_page') }}">Đăng ký</a>
+                    <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="about-us-container">
+            <h1>Điều khoản sử dụng</h1>
+            <p class="lead">Vui lòng đọc kỹ các điều khoản và điều kiện trước khi sử dụng dịch vụ của SangAir.</p>
+
+            <div class="about-section">
+                <h2>1. Chấp nhận Điều khoản</h2>
+                <p>Bằng việc truy cập và sử dụng trang web này, bạn đồng ý tuân thủ và bị ràng buộc bởi các điều khoản sử dụng được quy định dưới đây. Nếu bạn không đồng ý với bất kỳ điều khoản nào, vui lòng không sử dụng trang web.</p>
+            </div>
+
+            <div class="about-section">
+                <h2>2. Thay đổi Điều khoản</h2>
+                <p>SangAir có quyền sửa đổi, bổ sung các điều khoản này vào bất kỳ lúc nào mà không cần thông báo trước. Các thay đổi sẽ có hiệu lực ngay khi được đăng tải trên trang web. Việc bạn tiếp tục sử dụng trang web sau khi có thay đổi đồng nghĩa với việc bạn chấp nhận các điều khoản mới.</p>
+            </div>
+
+            <div class="about-section">
+                <h2>3. Quy định về Đặt vé và Thanh toán</h2>
+                <p>Tất cả các giao dịch đặt vé và thanh toán phải tuân thủ theo quy trình và các quy định về giá vé, thuế, phí được công bố tại thời điểm giao dịch. SangAir không chịu trách nhiệm cho các sai sót do người dùng nhập sai thông tin.</p>
+            </div>
+        </div>
+    </main>
+
+    </body>
+</html>

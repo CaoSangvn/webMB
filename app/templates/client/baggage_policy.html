@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Chính sách Hành lý - SangAir</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/about_us.css') }}" /> </head>
+<body>
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <a href="{{ url_for('client_bp.home_page') }}"><h2>SangAir</h2></a>
+            </div>
+            <nav>
+                <ul class="menu">
+                    <li><a href="{{ url_for('client_bp.my_flights_page') }}">CHUYẾN BAY CỦA TÔI</a></li>
+                    <li><a href="{{ url_for('client_bp.online_checkin_page') }}">ONLINE CHECK-IN</a></li>
+                    <li><a href="{{ url_for('client_bp.e_menu_page') }}">E-MENU</a></li>
+                    <li><a href="{{ url_for('client_bp.flight_services_page') }}">DỊCH VỤ CHUYẾN BAY</a></li>
+                </ul>
+            </nav>
+            <div class="auth-links">
+                {% if current_user_name %}
+                    <span class="welcome-message">Chào, {{ current_user_name }}!</span>
+                    <a href="{{ url_for('client_bp.logout_user') }}">Đăng xuất</a>
+                {% else %}
+                    <a href="{{ url_for('client_bp.register_page') }}">Đăng ký</a>
+                    <a href="{{ url_for('client_bp.login_page') }}">Đăng nhập</a>
+                {% endif %}
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <div class="about-us-container">
+            <h1>Chính sách Hành lý</h1>
+            <p class="lead">Quy định về hành lý xách tay và hành lý ký gửi trên các chuyến bay của SangAir.</p>
+
+            <div class="about-section">
+                <h2>1. Hành lý xách tay</h2>
+                <p>Mỗi hành khách được phép mang theo 01 kiện hành lý xách tay và 01 vật dụng cá nhân với tổng trọng lượng không vượt quá 7kg. Kích thước tối đa của hành lý xách tay không vượt quá 56cm x 36cm x 23cm.</p>
+            </div>
+
+            <div class="about-section">
+                <h2>2. Hành lý ký gửi</h2>
+                <p>Hành khách có thể mua thêm các gói hành lý ký gửi khi đặt vé hoặc tại sân bay. Trọng lượng tối đa cho mỗi kiện hành lý ký gửi là 32kg. Các vật dụng cấm vận chuyển theo quy định của ngành hàng không sẽ không được chấp nhận dưới mọi hình thức.</p>
+            </div>
+        </div>
+    </main>
+    
+    </body>
+</html>

@@ -685,3 +685,14 @@
     grid-template-columns: 1fr;
   }
 }
+/* Đoạn mã này đảm bảo các logo được căn chỉnh đẹp */
+.footer .app-icons {
+    display: flex;
+    align-items: center; /* Căn các logo vào giữa theo chiều dọc */
+    gap: 15px;           /* Khoảng cách giữa các logo */
+}
+
+.footer .app-icons a img {
+    height: 40px;   /* Đặt chiều cao tiêu chuẩn cho các logo là 40px */
+    width: auto;    /* Chiều rộng sẽ tự động điều chỉnh theo tỷ lệ */
+}

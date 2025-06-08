@@ -285,6 +285,47 @@ INSERT INTO notifications (title, content, is_active, display_order) VALUES
 ('Ưu đãi thanh toán MoMo', 'Nhận ngay voucher giảm giá 50.000 VNĐ khi thanh toán vé máy bay qua ví điện tử MoMo.', 1, 1),
 ('Check-in Online tiện lợi', 'Làm thủ tục trực tuyến nhanh chóng, tiết kiệm thời gian tại sân bay. Mở trước 24 giờ so với giờ khởi hành.', 1, 2),
 ('Thông báo cũ (không hoạt động)', 'Chương trình khuyến mãi tháng 5 đã kết thúc.', 0, 3);
+-- =================================================================
+-- DỮ LIỆU MẪU BỔ SUNG ĐỂ TEST
+-- =================================================================
+
+-- Thêm 2 người dùng client mới
+INSERT INTO users (id, full_name, email, password_hash, role) VALUES
+(2, 'Nguyễn Văn An', 'nguyenvana@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client'),
+(3, 'Trần Thị Bình', 'tranthib@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client');
+
+-- Thêm một chuyến bay trong quá khứ để test báo cáo
+INSERT INTO flights (flight_number, departure_airport_id, arrival_airport_id, departure_time, arrival_time, economy_price, business_price, first_class_price, total_seats, available_seats, status) VALUES
+('SA20', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), datetime('now', '-10 days'), datetime('now', '-10 days', '+1 hours 20 minutes'), 1200000, 2500000, 4000000, 150, 150, 'landed');
+
+
+-- Thêm 3 đặt chỗ mới với các trạng thái khác nhau
+-- Đặt chỗ 1: Đã hoàn thành (của chuyến bay trong quá khứ)
+INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
+(101, 2, (SELECT id FROM flights WHERE flight_number = 'SA20'), 'SACOMP', datetime('now', '-12 days'), 2, 'Phổ thông', 2400000, 150000, 2550000, 'momo', 'paid', 'completed');
+
+-- Đặt chỗ 2: Đã xác nhận (của chuyến bay sắp tới)
+INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
+(102, 3, (SELECT id FROM flights WHERE flight_number = 'SA1'), 'SACONF', datetime('now', '-2 days'), 1, 'Thương gia', 3000000, 0, 3000000, 'vnpay', 'paid', 'confirmed');
+
+-- Đặt chỗ 3: Chờ thanh toán (của chuyến bay sắp tới)
+INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
+(103, 2, (SELECT id FROM flights WHERE flight_number = 'SA3'), 'SAPEND', datetime('now', '-1 hours'), 1, 'Phổ thông', 1100000, 0, 1100000, NULL, 'pending', 'pending_payment');
+
+-- Thêm hành khách cho các đặt chỗ tương ứng
+INSERT INTO passengers (booking_id, full_name, first_name, last_name, passenger_type) VALUES
+(101, 'Nguyễn Văn An', 'An', 'Nguyễn Văn', 'adult'),
+(101, 'Lê Thị Cúc', 'Cúc', 'Lê Thị', 'adult'),
+(102, 'Trần Thị Bình', 'Bình', 'Trần Thị', 'adult'),
+(103, 'Nguyễn Văn An', 'An', 'Nguyễn Văn', 'adult');
+
+-- Thêm dịch vụ và suất ăn cho các đặt chỗ để test báo cáo
+-- Dịch vụ hành lý cho booking 101
+INSERT INTO booking_ancillary_services (booking_id, ancillary_service_id, price_at_booking) VALUES
+(101, (SELECT id FROM ancillary_services WHERE name LIKE '%Hành lý%'), 150000);
+-- Suất ăn cho booking 102
+INSERT INTO booking_menu_items (booking_id, menu_item_id, price_at_booking) VALUES
+(102, (SELECT id FROM menu_items WHERE name LIKE '%Mì Ý%'), 150000);
 
 
 

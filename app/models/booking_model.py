@@ -1,483 +1,53 @@
-# app/controllers/admin_routes.py
-from flask import Blueprint, render_template, session, redirect, url_for, current_app, request, jsonify
-from functools import wraps
+# app/models/booking_model.py
 import sqlite3
-from datetime import datetime
-import os
-from werkzeug.utils import secure_filename
+from flask import current_app
+from datetime import datetime, timedelta
+import random
+import string
 
-# Import tất cả các model cần thiết ở đầu tệp
-from app.models import (
-    flight_model,
-    airport_model,
-    client_model,
-    booking_model,
-    menu_item_model,
-    notification_model,
-    settings_model,
-    ancillary_service_model
-)
-from app.models.flight_model import combine_datetime_str
-from app.models.menu_item_model import serialize_menu_item
+# =================================================================
+# CÁC HÀM TIỆN ÍCH NỘI BỘ
+# =================================================================
 
-admin_bp = Blueprint('admin_bp', __name__,
-                     template_folder='../templates/admin',
-                     url_prefix='/admin')
+def _get_db_connection():
+    """Hàm tiện ích nội bộ để lấy kết nối DB."""
+    db_path = current_app.config['DATABASE_PATH']
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON;")
+    return conn
 
-# --- CÁC HÀM HELPER VÀ DECORATOR ---
+def _generate_pnr():
+    """Tạo mã đặt chỗ (PNR) ngẫu nhiên, ví dụ: SA1A2B."""
+    while True:
+        prefix = "SA"
+        random_part = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+        pnr = prefix + random_part
+        # Kiểm tra để đảm bảo PNR là duy nhất
+        conn = _get_db_connection()
+        try:
+            pnr_exists = conn.execute("SELECT 1 FROM bookings WHERE booking_code = ?", (pnr,)).fetchone()
+            if not pnr_exists:
+                return pnr
+        finally:
+            if conn:
+                conn.close()
 
-def allowed_file(filename):
-    """Kiểm tra xem đuôi file có được phép không."""
-    return '.' in filename and \
-           filename.rsplit('.', 1)[1].lower() in current_app.config['ALLOWED_EXTENSIONS']
+# =================================================================
+# CÁC HÀM CHO TRANG ADMIN
+# =================================================================
 
-def admin_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        if 'user_id' not in session or session.get('user_role') != 'admin':
-            return redirect(url_for('client_bp.login_page', next=request.url))
-        return f(*args, **kwargs)
-    return decorated_function
-
-# --- CÁC ROUTE RENDER TRANG HTML CHO ADMIN ---
-
-@admin_bp.route('/')
-@admin_bp.route('/dashboard')
-@admin_required
-def dashboard():
-    return render_template('admin/dashboard.html')
-
-@admin_bp.route('/flights')
-@admin_required
-def flights():
-    return render_template('admin/flights.html')
-
-@admin_bp.route('/bookings')
-@admin_required
-def quan_ly_dat_cho():
-    return render_template('admin/quan_ly_dat_cho.html')
-
-@admin_bp.route('/users')
-@admin_required
-def quan_ly_nguoi_dung():
-    return render_template('admin/quan_ly_nguoi_dung.html')
-
-@admin_bp.route('/homepage-notifications')
-@admin_required
-def quan_ly_thong_bao_trang_chu():
-    return render_template('admin/quan_ly_thong_bao_trang_chu.html')
-
-@admin_bp.route('/emenu-management')
-@admin_required
-def quan_ly_e_menu():
-    return render_template('admin/quan_ly_e_menu.html')
-    
-@admin_bp.route('/services')
-@admin_required
-def quan_ly_dich_vu():
-    return render_template('admin/quan_ly_dich_vu.html')
-
-@admin_bp.route('/reports')
-@admin_required
-def bao_cao_thong_ke():
-    return render_template('admin/bao_cao_thong_ke.html')
-    
-@admin_bp.route('/list-routes')
-@admin_required
-def list_routes():
-    import urllib
-    output = []
-    for rule in current_app.url_map.iter_rules():
-        options = {}
-        for arg in rule.arguments:
-            options[arg] = f"[{arg}]"
-        methods = ','.join(rule.methods)
-        url = urllib.parse.unquote(rule.rule)
-        line = f"{url:50s} {methods:30s} {rule.endpoint}"
-        output.append(line)
-    response_text = "<pre>" + "\n".join(sorted(output)) + "</pre>"
-    return response_text
-
-
-# --- ================================== ---
-# ---           CÁC API CHO ADMIN        ---
-# --- ================================== ---
-
-# --- API Quản lý chuyến bay ---
-@admin_bp.route('/api/flights', methods=['GET'])
-@admin_required
-def api_admin_get_all_flights():
-    try:
-        flights_data = flight_model.get_all_flights_admin()
-        return jsonify({"success": True, "flights": flights_data}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Lỗi máy chủ: {e}"}), 500
-
-@admin_bp.route('/api/flights', methods=['POST'])
-@admin_required
-def api_admin_create_flight():
-    data = request.get_json()
-    try:
-        flight_id = flight_model.create_flight(data)
-        new_flight = flight_model.get_flight_by_id_admin(flight_id)
-        return jsonify({"success": True, "message": "Tạo chuyến bay thành công!", "flight": new_flight}), 201
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 400
-
-@admin_bp.route('/api/flights/<int:flight_id>', methods=['GET'])
-@admin_required
-def api_admin_get_flight(flight_id):
-    flight = flight_model.get_flight_by_id_admin(flight_id)
-    if flight:
-        return jsonify({"success": True, "flight": flight}), 200
-    return jsonify({"success": False, "message": "Không tìm thấy chuyến bay."}), 404
-
-@admin_bp.route('/api/flights/<int:flight_id>', methods=['PUT'])
-@admin_required
-def api_admin_update_flight(flight_id):
-    data = request.get_json()
-    try:
-        success = flight_model.update_flight(flight_id, data)
-        if success:
-            updated_flight = flight_model.get_flight_by_id_admin(flight_id)
-            return jsonify({"success": True, "message": "Cập nhật thành công.", "flight": updated_flight}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/flights/<int:flight_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_flight(flight_id):
-    try:
-        success = flight_model.delete_flight(flight_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa thành công."}), 200
-        return jsonify({"success": False, "message": "Không thể xóa."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-# --- API Quản lý người dùng ---
-@admin_bp.route('/api/users', methods=['GET'])
-@admin_required
-def api_admin_get_all_users():
-    try:
-        search_term = request.args.get('search', None)
-        status_filter = request.args.get('status', None)
-        users = client_model.get_all_users_admin(search_term=search_term, status_filter=status_filter)
-        return jsonify({"success": True, "users": users}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Lỗi máy chủ: {e}"}), 500
-
-@admin_bp.route('/api/users/<int:user_id>', methods=['GET'])
-@admin_required
-def api_admin_get_user(user_id):
-    user = client_model.get_user_by_id(user_id)
-    if user:
-        user_dict = dict(user)
-        user_dict.pop('password_hash', None)
-        return jsonify({"success": True, "user": user_dict}), 200
-    return jsonify({"success": False, "message": "Không tìm thấy người dùng."}), 404
-
-@admin_bp.route('/api/users', methods=['POST'])
-@admin_required
-def api_admin_create_user():
-    data = request.get_json()
-    try:
-        user_id = client_model.create_user_by_admin(data)
-        new_user = client_model.get_user_by_id(user_id)
-        user_dict = dict(new_user)
-        user_dict.pop('password_hash', None)
-        return jsonify({"success": True, "message": "Tạo người dùng thành công!", "user": user_dict}), 201
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 400
-
-@admin_bp.route('/api/users/<int:user_id>', methods=['PUT'])
-@admin_required
-def api_admin_update_user(user_id):
-    data = request.get_json()
-    try:
-        success = client_model.update_user_by_admin(user_id, data)
-        if success:
-            updated_user = client_model.get_user_by_id(user_id)
-            user_dict = dict(updated_user)
-            user_dict.pop('password_hash', None)
-            return jsonify({"success": True, "message": "Cập nhật thành công.", "user": user_dict}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/users/<int:user_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_user(user_id):
-    if 'user_id' in session and int(user_id) == session['user_id']:
-        return jsonify({"success": False, "message": "Không thể tự xóa tài khoản đang đăng nhập."}), 403
-    try:
-        success = client_model.delete_user_by_admin(user_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa người dùng thành công."}), 200
-        return jsonify({"success": False, "message": "Không thể xóa người dùng."}), 404
-    except ValueError as ve:
-        return jsonify({"success": False, "message": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-# --- API Quản lý Đặt chỗ ---
-@admin_bp.route('/api/bookings', methods=['GET'])
-@admin_required
-def api_admin_get_all_bookings():
-    try:
-        search_term = request.args.get('search')
-        status_filter = request.args.get('status')
-        flight_date_filter = request.args.get('flightDate')
-        bookings = booking_model.get_all_bookings_admin(
-            search_term=search_term,
-            status_filter=status_filter,
-            flight_date_filter=flight_date_filter
-        )
-        return jsonify({"success": True, "bookings": bookings}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": f"Lỗi máy chủ: {e}"}), 500
-
-@admin_bp.route('/api/bookings/<int:booking_id>', methods=['GET'])
-@admin_required
-def api_admin_get_booking_details(booking_id):
-    details = booking_model.get_booking_details_admin(booking_id)
-    if details:
-        return jsonify({"success": True, "booking": details}), 200
-    return jsonify({"success": False, "message": "Không tìm thấy đặt chỗ."}), 404
-
-@admin_bp.route('/api/bookings/<int:booking_id>/status', methods=['PUT'])
-@admin_required
-def api_admin_update_booking_status(booking_id):
-    data = request.get_json()
-    if not data or 'newStatus' not in data:
-        return jsonify({"success": False, "message": "Thiếu trạng thái mới."}), 400
-    try:
-        success = booking_model.update_booking_status_admin(booking_id, data['newStatus'], data.get('adminNotes'))
-        if success:
-            updated_booking = booking_model.get_booking_details_admin(booking_id)
-            return jsonify({"success": True, "message": "Cập nhật trạng thái thành công.", "booking": updated_booking}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-        
-@admin_bp.route('/api/bookings/<int:booking_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_booking(booking_id):
-    try:
-        success = booking_model.delete_booking_by_admin(booking_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa đặt chỗ thành công."}), 200
-        return jsonify({"success": False, "message": "Không thể xóa đặt chỗ."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-# --- API Quản lý E-Menu ---
-@admin_bp.route('/api/menu-items', methods=['GET'])
-@admin_required
-def api_admin_get_all_menu_items():
-    try:
-        search_term = request.args.get('search')
-        category_filter = request.args.get('category')
-        items_raw = menu_item_model.get_all_menu_items_admin(search_term, category_filter)
-        items = [serialize_menu_item(item) for item in items_raw]
-        return jsonify({"success": True, "menu_items": items}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-@admin_bp.route('/api/menu-items/<int:item_id>', methods=['GET'])
-@admin_required
-def api_admin_get_menu_item(item_id):
-    item = menu_item_model.get_menu_item_by_id(item_id)
-    if item:
-        return jsonify({"success": True, "menu_item": item}), 200
-    return jsonify({"success": False, "message": "Không tìm thấy món."}), 404
-
-@admin_bp.route('/api/menu-items', methods=['POST'])
-@admin_required
-def api_admin_create_menu_item():
-    if 'menuItemName' not in request.form:
-        return jsonify({"success": False, "message": "Thiếu tên món."}), 400
-    
-    item_data = {key: request.form.get(key) for key in request.form}
-    image_url = None
-    if 'menuItemImageFile' in request.files:
-        file = request.files['menuItemImageFile']
-        if file and file.filename != '' and allowed_file(file.filename):
-            unique_filename = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{secure_filename(file.filename)}"
-            file.save(os.path.join(current_app.config['UPLOAD_FOLDER'], unique_filename))
-            image_url = f"uploads/menu_images/{unique_filename}"
-    item_data['image_url'] = image_url
-
-    try:
-        item_id = menu_item_model.create_menu_item(item_data)
-        new_item = menu_item_model.get_menu_item_by_id(item_id)
-        return jsonify({"success": True, "message": "Thêm món thành công!", "menu_item": serialize_menu_item(new_item)}), 201
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/menu-items/<int:item_id>', methods=['PUT'])
-@admin_required
-def api_admin_update_menu_item(item_id):
-    item_to_update = menu_item_model.get_menu_item_by_id(item_id)
-    if not item_to_update:
-        return jsonify({"success": False, "message": "Không tìm thấy món để cập nhật."}), 404
-        
-    data = {key: request.form.get(key) for key in request.form}
-    if 'menuItemImageFile' in request.files:
-        # (Xử lý file ảnh tương tự như hàm create)
-        pass
-    try:
-        success = menu_item_model.update_menu_item(item_id, data)
-        if success:
-            updated_item = menu_item_model.get_menu_item_by_id(item_id)
-            return jsonify({"success": True, "message": "Cập nhật thành công.", "menu_item": serialize_menu_item(updated_item)}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/menu-items/<int:item_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_menu_item(item_id):
-    try:
-        success = menu_item_model.delete_menu_item(item_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa món thành công."}), 200
-        return jsonify({"success": False, "message": "Không tìm thấy món để xóa."}), 404
-    except ValueError as ve:
-        return jsonify({"success": False, "message": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-# --- API Quản lý Thông báo & Cài đặt ---
-@admin_bp.route('/api/notifications', methods=['GET'])
-@admin_required
-def api_admin_get_notifications():
-    notifications = notification_model.get_all_notifications_admin()
-    return jsonify({"success": True, "notifications": notifications}), 200
-
-@admin_bp.route('/api/notifications', methods=['POST'])
-@admin_required
-def api_admin_create_notification():
-    data = request.get_json()
-    if not data or not data.get('content'):
-        return jsonify({"success": False, "message": "Nội dung là bắt buộc."}), 400
-    try:
-        item_id = notification_model.create_notification(data)
-        new_item = notification_model.get_notification_by_id(item_id)
-        return jsonify({"success": True, "message": "Thêm thông báo thành công!", "notification": new_item}), 201
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/notifications/<int:item_id>', methods=['PUT'])
-@admin_required
-def api_admin_update_notification(item_id):
-    data = request.get_json()
-    try:
-        success = notification_model.update_notification(item_id, data)
-        if success:
-            updated_item = notification_model.get_notification_by_id(item_id)
-            return jsonify({"success": True, "message": "Cập nhật thành công.", "notification": updated_item}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật."}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/notifications/<int:item_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_notification(item_id):
-    try:
-        success = notification_model.delete_notification(item_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa thành công."}), 200
-        return jsonify({"success": False, "message": "Không tìm thấy để xóa."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "message": str(e)}), 500
-
-@admin_bp.route('/api/settings/homepage-notice', methods=['POST'])
-@admin_required
-def api_admin_update_homepage_notice_settings():
-    data = request.get_json()
-    if not data or 'title' not in data:
-        return jsonify({"success": False, "message": "Dữ liệu không hợp lệ."}), 400
-    try:
-        settings_model.update_setting('homepage_notice_title', data['title'])
-        return jsonify({"success": True, "message": "Cài đặt đã được lưu."}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-# --- API Quản lý Dịch vụ Chuyến bay ---
-@admin_bp.route('/api/services', methods=['GET'])
-@admin_required
-def api_admin_get_all_services():
-    try:
-        services = ancillary_service_model.get_all_ancillary_services()
-        return jsonify({"success": True, "services": services}), 200
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-@admin_bp.route('/api/services/<int:service_id>', methods=['GET'])
-@admin_required
-def api_admin_get_service(service_id):
-    try:
-        service = ancillary_service_model.get_ancillary_service_by_id(service_id)
-        if service:
-            return jsonify({"success": True, "service": service}), 200
-        return jsonify({"success": False, "message": "Không tìm thấy dịch vụ."}), 404
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-@admin_bp.route('/api/services', methods=['POST'])
-@admin_required
-def api_admin_create_service():
-    data = request.get_json()
-    try:
-        service_id = ancillary_service_model.create_ancillary_service(data)
-        new_service = ancillary_service_model.get_ancillary_service_by_id(service_id)
-        return jsonify({"success": True, "message": "Tạo dịch vụ thành công!", "service": new_service}), 201
-    except ValueError as ve:
-        return jsonify({"success": False, "message": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-@admin_bp.route('/api/services/<int:service_id>', methods=['PUT'])
-@admin_required
-def api_admin_update_service(service_id):
-    data = request.get_json()
-    try:
-        success = ancillary_service_model.update_ancillary_service(service_id, data)
-        if success:
-            updated_service = ancillary_service_model.get_ancillary_service_by_id(service_id)
-            return jsonify({"success": True, "message": "Cập nhật dịch vụ thành công.", "service": updated_service}), 200
-        return jsonify({"success": False, "message": "Không thể cập nhật hoặc không có thay đổi."}), 404
-    except ValueError as ve:
-        return jsonify({"success": False, "message": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
-
-@admin_bp.route('/api/services/<int:service_id>', methods=['DELETE'])
-@admin_required
-def api_admin_delete_service(service_id):
-    try:
-        success = ancillary_service_model.delete_ancillary_service(service_id)
-        if success:
-            return jsonify({"success": True, "message": "Xóa dịch vụ thành công."}), 200
-        return jsonify({"success": False, "message": "Không tìm thấy dịch vụ để xóa."}), 404
-    except ValueError as ve:
-        return jsonify({"success": False, "message": str(ve)}), 400
-    except Exception as e:
-        return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
 def get_all_bookings_admin(search_term=None, status_filter=None, flight_date_filter=None):
     """
     Lấy danh sách tất cả các đặt chỗ cho trang Admin, có hỗ trợ tìm kiếm và lọc.
     """
     conn = _get_db_connection()
     try:
-        # Câu truy vấn cơ bản để lấy thông tin cần thiết
         query = """
             SELECT
                 b.id as booking_id,
                 b.booking_code as pnr,
-                COALESCE(u.full_name, 'Khách vãng lai') as passenger_name,
+                COALESCE(u.full_name, p_main.full_name, 'Khách vãng lai') as passenger_name,
                 u.email,
                 dep.iata_code || ' → ' || arr.iata_code as itinerary,
                 strftime('%Y-%m-%d', f.departure_time) as flight_date,
@@ -489,37 +59,484 @@ def get_all_bookings_admin(search_term=None, status_filter=None, flight_date_fil
             JOIN flights f ON b.flight_id = f.id
             JOIN airports dep ON f.departure_airport_id = dep.id
             JOIN airports arr ON f.arrival_airport_id = arr.id
+            LEFT JOIN (SELECT booking_id, full_name FROM passengers ORDER BY id LIMIT 1) p_main ON b.id = p_main.booking_id
         """
         conditions = []
         params = []
 
-        # Thêm điều kiện tìm kiếm nếu có
         if search_term:
             like_term = f"%{search_term}%"
-            conditions.append("(b.booking_code LIKE ? OR u.full_name LIKE ? OR u.email LIKE ?)")
-            params.extend([like_term, like_term, like_term])
-        
-        # Thêm điều kiện lọc theo trạng thái nếu có
+            conditions.append("(b.booking_code LIKE ? OR u.full_name LIKE ? OR u.email LIKE ? OR p_main.full_name LIKE ?)")
+            params.extend([like_term, like_term, like_term, like_term])
+
         if status_filter:
             conditions.append("b.status = ?")
             params.append(status_filter)
 
-        # Thêm điều kiện lọc theo ngày bay nếu có
         if flight_date_filter:
             conditions.append("date(f.departure_time) = ?")
             params.append(flight_date_filter)
 
-        # Ghép các điều kiện vào câu truy vấn chính
         if conditions:
             query += " WHERE " + " AND ".join(conditions)
-        
+
         query += " ORDER BY b.booking_time DESC"
-        
+
         bookings = conn.execute(query, tuple(params)).fetchall()
         return [dict(row) for row in bookings]
     except Exception as e:
-        current_app.logger.error(f"Error fetching all bookings for admin: {e}", exc_info=True)
+        current_app.logger.error(f"Lỗi khi lấy danh sách đặt chỗ cho admin: {e}", exc_info=True)
         return []
     finally:
         if conn:
             conn.close()
+
+def get_booking_details_admin(booking_id):
+    """Lấy chi tiết một đặt chỗ cho admin, bao gồm thông tin chuyến bay và hành khách."""
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT
+                b.id, b.user_id, b.flight_id, b.booking_code as pnr, b.booking_time,
+                b.num_adults, b.num_children, b.num_infants, b.seat_class_booked,
+                b.base_fare, b.ancillary_services_total, b.discount_applied, b.total_amount,
+                b.payment_method, b.payment_status, b.status as booking_status, b.notes as admin_notes,
+                f.flight_number, f.departure_time, f.arrival_time,
+                dep.city as departure_city, dep.iata_code as departure_iata,
+                arr.city as arrival_city, arr.iata_code as arrival_iata,
+                u.full_name as user_full_name, u.email as user_email
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            LEFT JOIN users u ON b.user_id = u.id
+            WHERE b.id = ?
+        """
+        booking = conn.execute(query, (booking_id,)).fetchone()
+        if not booking:
+            return None
+
+        booking_dict = dict(booking)
+
+        # Định dạng lại ngày giờ cho dễ đọc
+        dt_dep = datetime.fromisoformat(booking_dict['departure_time'])
+        dt_arr = datetime.fromisoformat(booking_dict['arrival_time'])
+        booking_dict['departure_datetime_formatted'] = dt_dep.strftime('%H:%M, %d/%m/%Y')
+        booking_dict['arrival_datetime_formatted'] = dt_arr.strftime('%H:%M, %d/%m/%Y')
+
+        # Lấy danh sách hành khách
+        passengers = conn.execute("SELECT * FROM passengers WHERE booking_id = ?", (booking_id,)).fetchall()
+        booking_dict['passengers'] = [dict(row) for row in passengers]
+
+        return booking_dict
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi lấy chi tiết booking admin (ID: {booking_id}): {e}", exc_info=True)
+        return None
+    finally:
+        if conn:
+            conn.close()
+
+def update_booking_status_admin(booking_id, new_status, admin_notes=None):
+    """Admin cập nhật trạng thái và ghi chú của một đặt chỗ."""
+    conn = _get_db_connection()
+    try:
+        # Lấy ghi chú hiện tại
+        current_notes_row = conn.execute("SELECT notes FROM bookings WHERE id = ?", (booking_id,)).fetchone()
+        current_notes = current_notes_row['notes'] if current_notes_row and current_notes_row['notes'] else ''
+
+        updated_notes = current_notes
+        if admin_notes:
+            timestamp = datetime.now().strftime('%d/%m/%Y %H:%M')
+            new_note_entry = f"\n[Admin - {timestamp}]: {admin_notes}"
+            updated_notes += new_note_entry
+
+        cursor = conn.execute(
+            "UPDATE bookings SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?",
+            (new_status, updated_notes.strip(), booking_id)
+        )
+        conn.commit()
+        return cursor.rowcount > 0
+    except Exception as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"Lỗi khi admin cập nhật trạng thái booking {booking_id}: {e}", exc_info=True)
+        raise
+    finally:
+        if conn: conn.close()
+
+def delete_booking_by_admin(booking_id):
+    """Admin xóa một đặt chỗ."""
+    conn = _get_db_connection()
+    try:
+        # Xóa các bảng liên quan trước nếu không có ON DELETE CASCADE
+        conn.execute("DELETE FROM passengers WHERE booking_id = ?", (booking_id,))
+        conn.execute("DELETE FROM booking_menu_items WHERE booking_id = ?", (booking_id,))
+        conn.execute("DELETE FROM booking_ancillary_services WHERE booking_id = ?", (booking_id,))
+        
+        # Xóa đặt chỗ chính
+        cursor = conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    except sqlite3.Error as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"Lỗi khi admin xóa booking {booking_id}: {e}", exc_info=True)
+        raise
+    finally:
+        if conn: conn.close()
+
+# =================================================================
+# CÁC HÀM CHO TRANG CLIENT
+# =================================================================
+
+def create_booking(user_id, flight_id, passengers_data, seat_class_booked, num_adults, num_children, num_infants, payment_method, ancillary_services_cost=0.0):
+    """Tạo một đặt chỗ mới cho client."""
+    conn = _get_db_connection()
+    try:
+        conn.execute("BEGIN")
+
+        flight = conn.execute("SELECT economy_price, business_price, first_class_price, available_seats FROM flights WHERE id = ?", (flight_id,)).fetchone()
+        if not flight:
+            raise ValueError("Chuyến bay không tồn tại.")
+
+        total_passengers = num_adults + num_children
+        if flight['available_seats'] < total_passengers:
+            raise ValueError("Chuyến bay không còn đủ chỗ trống.")
+
+        if seat_class_booked == "Thương gia":
+            price_per_pax = flight['business_price']
+        elif seat_class_booked == "Hạng nhất":
+            price_per_pax = flight['first_class_price']
+        else:
+            price_per_pax = flight['economy_price']
+        
+        base_fare = price_per_pax * total_passengers
+        total_amount = base_fare + ancillary_services_cost
+        pnr = _generate_pnr()
+
+        cursor = conn.execute("""
+            INSERT INTO bookings (user_id, flight_id, booking_code, num_adults, num_children, num_infants, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, status, payment_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending_payment', 'pending')
+        """, (user_id, flight_id, pnr, num_adults, num_children, num_infants, seat_class_booked, base_fare, ancillary_services_cost, total_amount, payment_method))
+        
+        booking_id = cursor.lastrowid
+
+        for pax_data in passengers_data:
+            conn.execute("INSERT INTO passengers (booking_id, full_name, passenger_type) VALUES (?, ?, ?)",
+                         (booking_id, pax_data.get('full_name', 'Hành khách'), pax_data.get('type', 'adult')))
+
+        conn.execute("UPDATE flights SET available_seats = available_seats - ? WHERE id = ?", (total_passengers, flight_id))
+        
+        conn.commit()
+        return {"booking_id": booking_id, "pnr": pnr, "total_amount": total_amount}
+    except Exception as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"Lỗi khi tạo booking: {e}", exc_info=True)
+        raise
+    finally:
+        if conn: conn.close()
+
+def get_bookings_by_user_id(user_id):
+    """Lấy tất cả đặt chỗ của một người dùng."""
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT 
+                b.*, b.status as booking_status, b.booking_code as pnr,
+                f.flight_number, f.departure_time,
+                dep.city as departure_city, arr.city as arrival_city,
+                strftime('%H:%M %d/%m/%Y', f.departure_time) as departure_datetime_formatted
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            WHERE b.user_id = ? ORDER BY f.departure_time DESC
+        """
+        bookings = conn.execute(query, (user_id,)).fetchall()
+        return [dict(row) for row in bookings]
+    finally:
+        if conn: conn.close()
+
+def get_booking_by_pnr_and_name(pnr, last_name, first_name):
+    """Tra cứu đặt chỗ bằng PNR và tên."""
+    conn = _get_db_connection()
+    try:
+        # Tìm booking_id từ PNR
+        booking_row = conn.execute("SELECT id FROM bookings WHERE booking_code = ?", (pnr.upper(),)).fetchone()
+        if not booking_row:
+            return None
+        booking_id = booking_row['id']
+
+        # Kiểm tra xem có hành khách nào khớp họ và tên trong đặt chỗ đó không
+        full_name_pattern = f"%{first_name}%{last_name}%"
+        passenger_row = conn.execute(
+            "SELECT 1 FROM passengers WHERE booking_id = ? AND (full_name LIKE ? OR (first_name = ? AND last_name = ?))",
+            (booking_id, f"{last_name} {first_name}", first_name, last_name)
+        ).fetchone()
+
+        if passenger_row:
+            return get_booking_details_admin(booking_id) # Dùng lại hàm chi tiết của admin
+        
+        return None
+    finally:
+        if conn: conn.close()
+
+
+def process_simulated_payment(booking_id, user_id):
+    """Xử lý thanh toán mô phỏng."""
+    conn = _get_db_connection()
+    try:
+        # Kiểm tra booking thuộc về user và đang chờ thanh toán
+        booking = conn.execute("SELECT id, status FROM bookings WHERE id = ? AND user_id = ?", (booking_id, user_id)).fetchone()
+        if not booking or booking['status'] not in ['pending_payment', 'changed']:
+            return False
+
+        # Cập nhật trạng thái
+        conn.execute("UPDATE bookings SET status = 'confirmed', payment_status = 'paid', updated_at = datetime('now') WHERE id = ?", (booking_id,))
+        conn.commit()
+        return True
+    except Exception as e:
+        if conn: conn.rollback()
+        current_app.logger.error(f"Lỗi xử lý thanh toán cho booking {booking_id}: {e}", exc_info=True)
+        return False
+    finally:
+        if conn: conn.close()
+
+def cancel_booking_by_user(user_id, booking_id):
+    """Người dùng tự hủy đặt chỗ."""
+    conn = _get_db_connection()
+    try:
+        conn.execute("BEGIN")
+        # Kiểm tra quyền sở hữu và trạng thái cho phép hủy
+        booking = conn.execute(
+            "SELECT flight_id, num_adults, num_children, status FROM bookings WHERE id = ? AND user_id = ?",
+            (booking_id, user_id)
+        ).fetchone()
+
+        if not booking:
+            raise ValueError("Không tìm thấy đặt chỗ hoặc bạn không có quyền thực hiện thao tác này.")
+        
+        # Chỉ cho phép hủy các vé chưa bay và chưa bị hủy
+        if booking['status'] not in ['pending_payment', 'confirmed', 'payment_received']:
+            raise ValueError(f"Không thể hủy đặt chỗ ở trạng thái '{booking['status']}'.")
+
+        # Cập nhật trạng thái booking
+        cursor = conn.execute("UPDATE bookings SET status = 'cancelled_by_user', updated_at = datetime('now') WHERE id = ?", (booking_id,))
+        if cursor.rowcount == 0:
+            raise ValueError("Không thể cập nhật trạng thái đặt chỗ.")
+            
+        # Hoàn trả lại số ghế đã đặt
+        total_passengers = (booking['num_adults'] or 0) + (booking['num_children'] or 0)
+        conn.execute(
+            "UPDATE flights SET available_seats = available_seats + ? WHERE id = ?",
+            (total_passengers, booking['flight_id'])
+        )
+
+        conn.commit()
+        return True
+    except Exception as e:
+        if conn: conn.rollback()
+        raise e
+    finally:
+        if conn: conn.close()
+
+
+# Placeholder for other functions that might be needed by client_routes.py
+# You should implement these based on your application's logic.
+
+def add_menu_items_to_booking(booking_id, user_id, selected_items):
+    # TODO: Implement this function
+    print(f"Adding menu items for booking {booking_id} by user {user_id}: {selected_items}")
+    return False, "Chức năng chưa được triển khai."
+
+def get_booking_for_checkin(pnr, last_name):
+    # TODO: Implement this function
+    print(f"Looking up booking for check-in with PNR {pnr} and last name {last_name}")
+    return None, "Chức năng chưa được triển khai."
+
+def process_checkin(booking_id, passenger_ids):
+    # TODO: Implement this function
+    print(f"Processing check-in for booking {booking_id} with passengers {passenger_ids}")
+    return False, "Chức năng chưa được triển khai.", None
+
+def add_ancillary_service_to_booking(user_id, pnr, service_id):
+    # TODO: Implement this function
+    print(f"Adding ancillary service {service_id} to booking {pnr} for user {user_id}")
+    return {"success": False}
+def get_new_bookings_count_24h():
+    """Đếm số lượng đặt chỗ được tạo trong vòng 24 giờ qua."""
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM bookings WHERE booking_time >= datetime('now', '-24 hours')"
+        result = conn.execute(query).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()
+
+def get_monthly_revenue():
+    """Tính tổng doanh thu từ các đặt chỗ đã thành công trong tháng hiện tại."""
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT SUM(total_amount) as total
+            FROM bookings
+            WHERE status IN ('confirmed', 'payment_received', 'completed', 'paid')
+            AND strftime('%Y-%m', booking_time) = strftime('%Y-%m', 'now', 'localtime')
+        """
+        result = conn.execute(query).fetchone()
+        return result['total'] if result and result['total'] is not None else 0
+    finally:
+        if conn: conn.close()
+def get_revenue_by_day(start_date, end_date):
+    """Lấy doanh thu mỗi ngày trong một khoảng thời gian cho biểu đồ."""
+    conn = _get_db_connection()
+    try:
+        # SỬA LỖI: Thêm COALESCE để xử lý trường hợp SUM trả về NULL
+        query = """
+            SELECT 
+                date(booking_time) as day,
+                COALESCE(SUM(total_amount), 0) as daily_revenue
+            FROM bookings
+            WHERE status IN ('confirmed', 'paid', 'completed', 'payment_received')
+              AND date(booking_time) BETWEEN ? AND ?
+            GROUP BY day
+            ORDER BY day ASC;
+        """
+        results = conn.execute(query, (start_date, end_date)).fetchall()
+        # Nếu không có ngày nào có doanh thu, query có thể trả về 1 dòng với giá trị NULL.
+        # Đoạn code dưới đảm bảo chúng ta luôn trả về một danh sách các dict hợp lệ.
+        if results and len(results) == 1 and results[0]['day'] is None:
+            return []
+            
+        return [dict(row) for row in results]
+    finally:
+        if conn: conn.close()
+
+def get_booking_stats_in_range(start_date, end_date):
+    """Lấy các thống kê tổng hợp về đặt chỗ trong một khoảng thời gian."""
+    conn = _get_db_connection()
+    try:
+        stats = {}
+        # Thống kê trạng thái
+        status_query = """
+            SELECT status, COUNT(id) as count
+            FROM bookings
+            WHERE date(booking_time) BETWEEN ? AND ?
+            GROUP BY status;
+        """
+        stats['status_distribution'] = [dict(row) for row in conn.execute(status_query, (start_date, end_date)).fetchall()]
+        
+        # Thống kê chặng bay phổ biến
+        routes_query = """
+            SELECT 
+                dep.iata_code || ' → ' || arr.iata_code as route,
+                COUNT(b.id) as count
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            WHERE date(b.booking_time) BETWEEN ? AND ?
+              AND b.status IN ('confirmed', 'paid', 'completed', 'payment_received')
+            GROUP BY route
+            ORDER BY count DESC
+            LIMIT 5;
+        """
+        stats['top_routes'] = [dict(row) for row in conn.execute(routes_query, (start_date, end_date)).fetchall()]
+        
+        return stats
+    finally:
+        if conn: conn.close()
+
+def get_new_bookings_count_24h():
+    """Đếm số lượng đặt chỗ được tạo trong vòng 24 giờ qua."""
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM bookings WHERE booking_time >= datetime('now', '-24 hours')"
+        result = conn.execute(query).fetchone()
+        return result['count'] if result else 0
+    finally:
+        if conn: conn.close()
+
+def get_monthly_revenue():
+    """Tính tổng doanh thu từ các đặt chỗ đã thành công trong tháng hiện tại."""
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT SUM(total_amount) as total
+            FROM bookings
+            WHERE status IN ('confirmed', 'paid', 'completed', 'payment_received')
+            AND strftime('%Y-%m', booking_time) = strftime('%Y-%m', 'now', 'localtime')
+        """
+        result = conn.execute(query).fetchone()
+        return result['total'] if result and result['total'] is not None else 0
+    finally:
+        if conn: conn.close()
+def get_revenue_by_day(start_date, end_date):
+    conn = _get_db_connection()
+    try:
+        query = """
+            SELECT date(booking_time) as day, COALESCE(SUM(total_amount), 0) as daily_revenue
+            FROM bookings
+            WHERE status IN ('confirmed', 'paid', 'completed', 'payment_received')
+              AND date(booking_time) BETWEEN ? AND ?
+            GROUP BY day ORDER BY day ASC;
+        """
+        results = conn.execute(query, (start_date, end_date)).fetchall()
+        if results and len(results) == 1 and results[0]['day'] is None: return []
+        return [dict(row) for row in results]
+    finally:
+        if conn: conn.close()
+
+def get_booking_stats_in_range(start_date, end_date):
+    conn = _get_db_connection()
+    try:
+        stats = {}
+        stats['status_distribution'] = [dict(row) for row in conn.execute("SELECT status, COUNT(id) as count FROM bookings WHERE date(booking_time) BETWEEN ? AND ? GROUP BY status;", (start_date, end_date)).fetchall()]
+        routes_query = """
+            SELECT dep.iata_code || ' → ' || arr.iata_code as route, COUNT(b.id) as count
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            WHERE date(b.booking_time) BETWEEN ? AND ? AND b.status IN ('confirmed', 'paid', 'completed', 'payment_received')
+            GROUP BY route ORDER BY count DESC LIMIT 5;
+        """
+        stats['top_routes'] = [dict(row) for row in conn.execute(routes_query, (start_date, end_date)).fetchall()]
+        return stats
+    finally:
+        if conn: conn.close()
+def delete_booking_by_admin(booking_id):
+    """
+    Admin xóa một đặt chỗ.
+    Hàm này cũng sẽ cộng lại số ghế đã đặt vào chuyến bay tương ứng.
+    """
+    conn = _get_db_connection()
+    try:
+        conn.execute("BEGIN") # Bắt đầu một transaction
+
+        # 1. Lấy thông tin chuyến bay và số lượng hành khách của đặt chỗ sắp xóa
+        booking = conn.execute(
+            "SELECT flight_id, num_adults, num_children FROM bookings WHERE id = ?",
+            (booking_id,)
+        ).fetchone()
+
+        if booking:
+            total_passengers = (booking['num_adults'] or 0) + (booking['num_children'] or 0)
+            flight_id = booking['flight_id']
+            
+            # 2. Cộng lại số ghế trống cho chuyến bay
+            if total_passengers > 0:
+                conn.execute(
+                    "UPDATE flights SET available_seats = available_seats + ? WHERE id = ?",
+                    (total_passengers, flight_id)
+                )
+
+        # 3. Xóa đặt chỗ (các bản ghi liên quan trong passengers, booking_menu_items... sẽ tự xóa do ON DELETE CASCADE)
+        cursor = conn.execute("DELETE FROM bookings WHERE id = ?", (booking_id,))
+        
+        conn.commit() # Hoàn tất transaction
+        return cursor.rowcount > 0 # Trả về True nếu có 1 dòng bị ảnh hưởng (xóa thành công)
+    except Exception as e:
+        if conn: conn.rollback() # Hoàn tác nếu có lỗi
+        current_app.logger.error(f"Lỗi khi xóa đặt chỗ {booking_id} bởi admin: {e}", exc_info=True)
+        raise # Ném lỗi để controller bắt
+    finally:
+        if conn: conn.close()
