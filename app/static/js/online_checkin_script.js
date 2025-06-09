@@ -58,36 +58,82 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function handleLookup(pnr, lastName) {
-        if(lookupButton) {
-            lookupButton.disabled = true;
-            lookupButton.textContent = 'Đang tìm...';
-        }
-        if(lookupErrorMsg) lookupErrorMsg.style.display = 'none';
-        
-        try {
-            const response = await fetch('/api/checkin/lookup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ booking_code: pnr, last_name: lastName })
-            });
-            const result = await response.json();
+    if(lookupButton) {
+        lookupButton.disabled = true;
+        lookupButton.textContent = 'Đang tìm...';
+    }
+    if(lookupErrorMsg) {
+        lookupErrorMsg.innerHTML = ''; // Xóa nội dung cũ (quan trọng)
+        lookupErrorMsg.style.display = 'none';
+    }
 
-            if (response.ok && result.success) {
-                currentBookingData = result.booking;
-                populateFlightsAndPassengersStep();
-                showStep('flightsPassengers');
+    try {
+        const response = await fetch('/api/checkin/lookup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ booking_code: pnr, last_name: lastName })
+        });
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+            // Nếu tra cứu thành công, hiển thị bước chọn hành khách
+            currentBookingData = result.booking;
+            populateFlightsAndPassengersStep();
+            showStep('flightsPassengers');
+        } else {
+            // Nếu có lỗi, xử lý một cách thông minh
+            if (result.reason_code === 'PENDING_PAYMENT') {
+                // TRƯỜNG HỢP ĐẶC BIỆT: VÉ CHỜ THANH TOÁN
+                // 1. Hiển thị thông báo lỗi từ backend
+                lookupErrorMsg.innerHTML = `<p>${result.message}</p>`;
+
+                // 2. Tạo một nút "Thanh toán ngay"
+                const payButton = document.createElement('button');
+                payButton.textContent = 'Thanh toán ngay';
+                payButton.className = 'action-btn-vj primary-btn-vj'; // Dùng lại class CSS có sẵn
+                payButton.style.marginTop = '10px';
+
+                // 3. Gán sự kiện click cho nút
+                payButton.onclick = async () => {
+                    payButton.textContent = 'Đang chuyển hướng...';
+                    payButton.disabled = true;
+
+                    // Gọi API Bước 2 để chuẩn bị session và lấy URL
+                    const prepareResponse = await fetch('/api/payment/prepare', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ booking_id: result.booking_id })
+                    });
+                    const prepareResult = await prepareResponse.json();
+
+                    if (prepareResult.success) {
+                        // Chuyển hướng người dùng đến trang thanh toán
+                        window.location.href = prepareResult.redirect_url;
+                    } else {
+                        alert('Lỗi: ' + prepareResult.message);
+                        payButton.textContent = 'Thanh toán ngay';
+                        payButton.disabled = false;
+                    }
+                };
+
+                // 4. Thêm nút vào khu vực báo lỗi và hiển thị nó
+                lookupErrorMsg.appendChild(payButton);
+                lookupErrorMsg.style.display = 'block';
+
             } else {
+                // Các loại lỗi khác (không tìm thấy PNR, sai tên,...)
                 displayError(lookupErrorMsg, result.message || "Không tìm thấy đặt chỗ hoặc thông tin không chính xác.");
             }
-        } catch (error) {
-            displayError(lookupErrorMsg, "Lỗi kết nối máy chủ. Vui lòng thử lại.");
-        } finally {
-            if(lookupButton) {
-                lookupButton.disabled = false;
-                lookupButton.textContent = 'Tìm đặt chỗ';
-            }
+        }
+    } catch (error) {
+        displayError(lookupErrorMsg, "Lỗi kết nối máy chủ. Vui lòng thử lại.");
+    } finally {
+        if(lookupButton) {
+            lookupButton.disabled = false;
+            lookupButton.textContent = 'Tìm đặt chỗ';
         }
     }
+}
 
     if (lookupForm) {
         lookupForm.addEventListener('submit', function(e) {

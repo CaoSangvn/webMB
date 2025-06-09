@@ -142,12 +142,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         const response = await fetch(`/admin/api/users/${userId}`, {
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ userStatus: newStatus }) // API sẽ map userStatus sang status
+                            body: JSON.stringify({ status: newStatus }) // API sẽ map userStatus sang status
                         });
                         const result = await response.json();
                         if (response.ok && result.success) {
                             alert(`Đã ${actionText} tài khoản ID ${userId}.`);
-                            fetchUsers(userSearchInput.value.trim(), userStatusFilter.value); // Tải lại với filter hiện tại
+                            fetchUsers(userSearchInput.value.trim(), userStatusFilter.value); 
                         } else {
                             alert("Lỗi: " + (result.message || `Không thể ${actionText} tài khoản.`));
                         }

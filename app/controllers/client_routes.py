@@ -429,14 +429,17 @@ def checkin_lookup_api():
     last_name = data['last_name']
 
     try:
-        booking, message = booking_model.get_booking_for_checkin(pnr, last_name)
-        if booking:
-            return jsonify({"success": True, "booking": booking}), 200
+        result = booking_model.get_booking_for_checkin(pnr, last_name)
+        if result.get("success"):
+        # Nếu thành công, trả về dữ liệu đặt chỗ
+            return jsonify({"success": True, "booking": result.get("booking_data")}), 200
         else:
-            return jsonify({"success": False, "message": message}), 404
+        # Nếu thất bại, trả về toàn bộ dictionary lỗi (chứa message, reason_code, booking_id)
+        # Mã lỗi 400 (Bad Request) phù hợp hơn trong trường hợp này
+            return jsonify(result), 400 
     except Exception as e:
-        current_app.logger.error(f"Lỗi API tra cứu check-in PNR {pnr}: {e}", exc_info=True)
-        return jsonify({"success": False, "message": "Lỗi máy chủ khi tra cứu."}), 500
+         current_app.logger.error(f"Lỗi API tra cứu check-in PNR {pnr}: {e}", exc_info=True)
+         return jsonify({"success": False, "message": "Lỗi máy chủ khi tra cứu."}), 500
 
 @client_bp.route('/api/checkin/process', methods=['POST'])
 def process_checkin_api():
@@ -597,3 +600,22 @@ def add_single_menu_item_api():
     except Exception as e:
         current_app.logger.error(f"API Add Single Menu Item Error: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
+@client_bp.route('/api/payment/prepare', methods=['POST'])
+@login_required
+def prepare_payment_api():
+    """
+    API để chuẩn bị session cho việc thanh toán một booking cụ thể.
+    """
+    data = request.get_json()
+    booking_id = data.get('booking_id')
+    if not booking_id:
+        return jsonify({"success": False, "message": "Thiếu mã đặt chỗ."}), 400
+
+    # Lưu booking_id vào session để trang thanh toán có thể lấy ra
+    session['booking_id_to_pay'] = booking_id
+
+    # Lấy URL của trang thanh toán một cách linh động
+    payment_url = url_for('client_bp.payment_page_render')
+
+    # Trả về URL này cho frontend
+    return jsonify({"success": True, "redirect_url": payment_url})

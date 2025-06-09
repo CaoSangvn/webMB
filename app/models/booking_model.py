@@ -137,22 +137,39 @@ def get_booking_details_admin(booking_id):
             conn.close()
 
 def update_booking_status_admin(booking_id, new_status, admin_notes=None):
-    """Admin cập nhật trạng thái và ghi chú của một đặt chỗ."""
+    """
+    Admin cập nhật trạng thái và ghi chú của một đặt chỗ.
+    Hàm này cũng sẽ tự động cập nhật payment_status cho logic.
+    """
     conn = _get_db_connection()
     try:
-        # Lấy ghi chú hiện tại
+        # Bảng ánh xạ giữa trạng thái chính và trạng thái thanh toán tương ứng
+        payment_status_map = {
+            'pending_payment': 'pending',
+            'confirmed': 'paid',
+            'payment_received': 'paid',
+            'completed': 'paid',
+            'cancelled_by_user': 'refunded',    # Giả sử hủy là sẽ hoàn tiền
+            'cancelled_by_airline': 'refunded', # Giả sử hủy là sẽ hoàn tiền
+            'no_show': 'paid',                  # Khách không đến nhưng đã trả tiền
+            'changed': 'pending'                # Đã thay đổi, có thể cần thanh toán thêm
+        }
+        # Dựa vào new_status được chọn, tìm ra new_payment_status tương ứng
+        new_payment_status = payment_status_map.get(new_status, 'pending') # Mặc định là 'pending' nếu không tìm thấy
+
+        # Logic xử lý ghi chú của admin (giữ nguyên như cũ)
         current_notes_row = conn.execute("SELECT notes FROM bookings WHERE id = ?", (booking_id,)).fetchone()
         current_notes = current_notes_row['notes'] if current_notes_row and current_notes_row['notes'] else ''
-
         updated_notes = current_notes
         if admin_notes:
             timestamp = datetime.now().strftime('%d/%m/%Y %H:%M')
             new_note_entry = f"\n[Admin - {timestamp}]: {admin_notes}"
             updated_notes += new_note_entry
 
+        # Cập nhật cả status và payment_status trong một câu lệnh
         cursor = conn.execute(
-            "UPDATE bookings SET status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?",
-            (new_status, updated_notes.strip(), booking_id)
+            "UPDATE bookings SET status = ?, payment_status = ?, notes = ?, updated_at = datetime('now') WHERE id = ?",
+            (new_status, new_payment_status, updated_notes.strip(), booking_id)
         )
         conn.commit()
         return cursor.rowcount > 0
@@ -260,7 +277,7 @@ def get_bookings_by_user_id(user_id):
                 f.flight_number, f.departure_time, f.arrival_time,
                 dep.city as departure_city, dep.iata_code as departure_iata,
                 arr.city as arrival_city, arr.iata_code as arrival_iata,
-                strftime('%H:%M, %d/%m/%Y', f.departure_time) as departure_datetime_formatted
+                strftime('%d/%m/%Y', f.departure_time) as flight_date_formatted
             FROM bookings b
             JOIN flights f ON b.flight_id = f.id
             JOIN airports dep ON f.departure_airport_id = dep.id
@@ -468,11 +485,24 @@ def add_menu_items_to_booking(booking_id, user_id, selected_items):
 def get_booking_for_checkin(pnr, last_name):
     """
     Tra cứu thông tin đặt chỗ để làm thủ tục check-in.
-    Hàm này kiểm tra các điều kiện như PNR, tên, trạng thái đặt chỗ, và thời gian bay.
+    Hàm này trả về một dictionary có cấu trúc và thông báo lỗi bằng Tiếng Việt.
     """
     conn = _get_db_connection()
     try:
-        # Bước 1: Tìm đặt chỗ bằng PNR (không thay đổi)
+        # Dictionary để "dịch" các mã trạng thái sang Tiếng Việt
+        status_vietnamese = {
+            "pending_payment": "Chờ thanh toán",
+            "confirmed": "Đã xác nhận",
+            "cancelled_by_user": "Khách hàng đã hủy",
+            "cancelled_by_airline": "Hãng đã hủy",
+            "completed": "Đã hoàn thành",
+            "no_show": "Không có mặt",
+            "changed": "Đã thay đổi",
+            "payment_received": "Đã nhận thanh toán",
+            "paid": "Đã thanh toán"
+        }
+
+        # Bước 1: Tìm đặt chỗ bằng PNR
         booking_query = """
             SELECT b.id as booking_id, b.flight_id, b.status as booking_status, f.departure_time, f.status as flight_status
             FROM bookings b
@@ -482,43 +512,50 @@ def get_booking_for_checkin(pnr, last_name):
         booking_info = conn.execute(booking_query, (pnr.upper(),)).fetchone()
 
         if not booking_info:
-            return None, "Mã đặt chỗ không tồn tại."
+            return {"success": False, "message": "Mã đặt chỗ không tồn tại.", "reason_code": "NOT_FOUND"}
 
-        # <<< SỬA LỖI Ở ĐÂY: SO SÁNH TÊN KHÔNG PHÂN BIỆT HOA/THƯỜNG >>>
-        # Bước 2: Kiểm tra họ của hành khách (sửa để không phân biệt chữ hoa/thường)
+        # Bước 2: Kiểm tra họ của hành khách
         passenger_query = "SELECT 1 FROM passengers WHERE booking_id = ? AND LOWER(last_name) = LOWER(?)"
-        # Xóa khoảng trắng thừa và chuyển đổi sang chữ thường ở phía Python để đảm bảo
         clean_last_name = last_name.strip()
         passenger_exists = conn.execute(passenger_query, (booking_info['booking_id'], clean_last_name)).fetchone()
         
         if not passenger_exists:
-            return None, "Thông tin Họ của hành khách không chính xác cho Mã đặt chỗ này."
-        # <<< KẾT THÚC SỬA LỖI >>>
+            return {"success": False, "message": "Thông tin Họ của hành khách không chính xác cho Mã đặt chỗ này.", "reason_code": "INVALID_NAME"}
 
-        # Bước 3: Kiểm tra các điều kiện check-in (không thay đổi)
-        if booking_info['booking_status'] not in ['confirmed', 'paid', 'payment_received']:
-            return None, f"Đặt chỗ của bạn đang ở trạng thái '{booking_info['booking_status']}' và không thể làm thủ tục."
+        # Bước 3: Kiểm tra các điều kiện check-in
+        current_status_code = booking_info['booking_status']
+        status_text = status_vietnamese.get(current_status_code, current_status_code) # Lấy tên TV, nếu không có thì dùng mã gốc
 
-        if booking_info['flight_status'] not in ['scheduled', 'on_time']:
-            return None, f"Chuyến bay đang ở trạng thái '{booking_info['flight_status']}' và không thể làm thủ tục."
+        if current_status_code == 'pending_payment':
+            return {
+                "success": False,
+                "message": f"Đặt chỗ của bạn đang ở trạng thái '{status_text}'. Vui lòng thanh toán để tiếp tục.",
+                "reason_code": "PENDING_PAYMENT",
+                "booking_id": booking_info['booking_id']
+            }
+
+        if current_status_code not in ['confirmed', 'paid', 'payment_received']:
+            return {
+                "success": False,
+                "message": f"Đặt chỗ của bạn đang ở trạng thái '{status_text}' và không thể làm thủ tục.",
+                "reason_code": "INVALID_STATUS"
+            }
 
         departure_dt = datetime.fromisoformat(booking_info['departure_time'])
         now_dt = datetime.now()
         time_to_departure = departure_dt - now_dt
 
         if not (timedelta(hours=1) <= time_to_departure <= timedelta(hours=24)):
-            return None, "Chưa đến thời gian làm thủ tục trực tuyến (chỉ mở trước 24 giờ và đóng trước 1 giờ so với giờ khởi hành)."
+            return {
+                "success": False,
+                "message": "Chưa đến thời gian làm thủ tục trực tuyến (chỉ mở trước 24 giờ và đóng trước 1 giờ so với giờ khởi hành).",
+                "reason_code": "INVALID_TIME"
+            }
 
-        # Bước 4: Lấy thông tin chi tiết để hiển thị (không thay đổi)
+        # Bước 4: Nếu mọi thứ hợp lệ, lấy thông tin chi tiết
         details_query = """
-            SELECT
-                b.id as booking_id, f.flight_number,
-                dep.city as departure_city, arr.city as arrival_city,
-                f.departure_time
-            FROM bookings b
-            JOIN flights f ON b.flight_id = f.id
-            JOIN airports dep ON f.departure_airport_id = dep.id
-            JOIN airports arr ON f.arrival_airport_id = arr.id
+            SELECT b.id as booking_id, f.flight_number, dep.city as departure_city, arr.city as arrival_city, f.departure_time
+            FROM bookings b JOIN flights f ON b.flight_id = f.id JOIN airports dep ON f.departure_airport_id = dep.id JOIN airports arr ON f.arrival_airport_id = arr.id
             WHERE b.id = ?
         """
         booking_details = conn.execute(details_query, (booking_info['booking_id'],)).fetchone()
@@ -528,12 +565,12 @@ def get_booking_for_checkin(pnr, last_name):
 
         result = dict(booking_details)
         result['passengers'] = [dict(p) for p in passengers]
-
-        return result, "Tìm thấy đặt chỗ, sẵn sàng làm thủ tục."
+        
+        return {"success": True, "booking_data": result}
 
     except Exception as e:
         current_app.logger.error(f"Lỗi khi tra cứu check-in cho PNR {pnr}: {e}", exc_info=True)
-        return None, "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."
+        return {"success": False, "message": "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau.", "reason_code": "SERVER_ERROR"}
     finally:
         if conn:
             conn.close()

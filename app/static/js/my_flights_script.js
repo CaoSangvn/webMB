@@ -110,7 +110,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 bookingSummaryDiv.className = 'booking-summary-item-vj';
                 
                 const statusInfo = statusMapping[booking.booking_status] || { text: booking.booking_status || 'N/A' };
-                const displayDate = booking.departure_datetime_formatted ? booking.departure_datetime_formatted.split(', ')[2] : (booking.departure_time ? booking.departure_time.substring(0,10) : 'N/A');
+                const displayDate = booking.flight_date_formatted || 'N/A';
                 
                 bookingSummaryDiv.innerHTML = `
                     <h4>Mã đặt chỗ: ${booking.pnr}</h4>
