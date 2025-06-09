@@ -61,7 +61,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (serviceId) {
             modalTitle.textContent = 'Chỉnh sửa Dịch vụ';
             try {
-                // SỬA LỖI Ở ĐÂY: Thêm '/admin' vào trước URL
                 const response = await fetch(`/admin/api/services/${serviceId}`);
                 const result = await response.json();
                 if (result.success) {
@@ -106,7 +105,6 @@ document.addEventListener('DOMContentLoaded', function() {
         formData.forEach((value, key) => data[key] = value);
         data.is_available = document.getElementById('serviceIsAvailable').value;
 
-        // SỬA LỖI Ở ĐÂY: Thêm '/admin' vào trước URL
         const url = editingServiceId ? `/admin/api/services/${editingServiceId}` : '/admin/api/services';
         const method = editingServiceId ? 'PUT' : 'POST';
 
@@ -143,7 +141,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (button.classList.contains('btn-delete-item')) {
             if (confirm(`Bạn có chắc muốn xóa dịch vụ có ID ${serviceId} không?`)) {
                 try {
-                    // SỬA LỖI Ở ĐÂY: Thêm '/admin' vào trước URL
                     const response = await fetch(`/admin/api/services/${serviceId}`, { method: 'DELETE' });
                     const result = await response.json();
                     if (result.success) {

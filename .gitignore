@@ -1,6 +1,0 @@
-# Bỏ qua thư mục instance chứa database
-instance/
-
-# Bỏ qua các tệp cache của Python
-__pycache__/
-*.pyc
