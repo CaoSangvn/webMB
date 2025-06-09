@@ -406,33 +406,36 @@ if (bookingForm) {
     const departureSelect = document.getElementById("departure");
     const destinationSelect = document.getElementById("destination");
 
+    const destinationMap = {
+    "TP. HCM": "SGN",
+    "Hà Nội": "HAN",
+    "Đà Nẵng": "DAD",
+    "Huế": "HUI",
+    "Phú Quốc": "PQC",
+    "Nha Trang": "CXR",
+    "Côn Đảo": "VCS",
+    "Quảng Bình": "VDH",
+    "Nghệ An": "VII"
+    };
 
     if (destinations.length > 0 && departureSelect && destinationSelect && bookingForm) {
-        destinations.forEach(dest => {
+    destinations.forEach(dest => {
         dest.addEventListener("click", () => {
-            const locationName = dest.getAttribute("data-destination");
-            let iataCodeForLocation = "";
+        const locationName = dest.getAttribute("data-destination");
+        const iataCode = destinationMap[locationName];
 
-            for (let option of destinationSelect.options) {
-            if (option.textContent.includes(locationName)) {
-                iataCodeForLocation = option.value;
-                break;
-            }
-            }
+        if (iataCode) {
+            destinationSelect.value = iataCode;
+        }
 
-            if (!departureSelect.value && departureSelect.querySelector('option[value="HAN"]')) {
+        // Nếu điểm đi chưa chọn, mặc định là Hà Nội
+        if (!departureSelect.value && departureSelect.querySelector('option[value="HAN"]')) {
             departureSelect.value = "HAN";
-            }
+        }
 
-            if (iataCodeForLocation) {
-            destinationSelect.value = iataCodeForLocation;
-            } else if (destinationSelect.options.length > 1) {
-            destinationSelect.selectedIndex = 1;
-            }
-
-            bookingForm.scrollIntoView({ behavior: "smooth" });
-            });
+        bookingForm.scrollIntoView({ behavior: "smooth" });
         });
+    });
     }
 });
 
