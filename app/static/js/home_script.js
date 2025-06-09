@@ -173,80 +173,106 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // === LOGIC HIỂN THỊ KẾT QUẢ TÌM KIẾM ===
-    function renderFlightResults(flights, selectedSeatClass) {
-        flightOptionsContainer.innerHTML = '';
-        if (flights.length === 0) {
-            flightOptionsContainer.innerHTML = '<p style="color: white; text-align: center;">Không có chuyến bay nào phù hợp với yêu cầu của bạn.</p>';
-        } else {
-            flights.forEach(flight => {
-                const flightHTML = `
-                    <div class="flight-option">
-                        <div class="flight-details">
-                            <h3>${flight.origin_iata} → ${flight.destination_iata}</h3>
-                            <p>Số hiệu: <strong>${flight.flight_number}</strong></p>
-                            <p>Khởi hành: ${flight.departure_time_formatted}</p>
-                            <p>Thời gian bay: ${flight.duration_formatted}</p>
-                        </div>
-                        <div class="flight-pricing" style="text-align: right;">
-                            <p style="font-size: 1.2rem; font-weight: bold; color: #ffeb3b;">${(flight.price || 0).toLocaleString('vi-VN')} VND</p>
-                            <button class="book-btn" data-flight-id="${flight.id}" data-seat-class="${selectedSeatClass}">Đặt vé</button>
-                        </div>
-                    </div>
-                `;
-                flightOptionsContainer.innerHTML += flightHTML;
-            });
-            attachBookButtonListeners();
+    function renderFlightResults(flightsData, seatClass) {
+    const depContainer = document.getElementById('departure-flight-options-container');
+    const retContainer = document.getElementById('return-flight-options-container');
+    const depResultsDiv = document.getElementById('departure-flights-results');
+    const retResultsDiv = document.getElementById('return-flights-results');
+    
+    // Xóa kết quả cũ
+    depContainer.innerHTML = '';
+    retContainer.innerHTML = '';
+    retResultsDiv.style.display = 'none';
+
+    // Hàm phụ để render một danh sách chuyến bay
+    const renderList = (container, flights) => {
+        if (!flights || flights.length === 0) {
+            container.innerHTML = '<p style="color: white; text-align: center;">Không có chuyến bay nào phù hợp.</p>';
+            return;
         }
-        flightResultsSection.style.display = 'block';
+        flights.forEach(flight => {
+            const flightHTML = `
+                <div class="flight-option">
+                    <div class="flight-details">
+                        <h3>${flight.origin_iata} → ${flight.destination_iata}</h3>
+                        <p>Số hiệu: <strong>${flight.flight_number}</strong></p>
+                        <p>Khởi hành: ${flight.departure_time_formatted}</p>
+                        <p>Thời gian bay: ${flight.duration_formatted}</p>
+                    </div>
+                    <div class="flight-pricing" style="text-align: right;">
+                        <p style="font-size: 1.2rem; font-weight: bold; color: #ffeb3b;">${(flight.price || 0).toLocaleString('vi-VN')} VND</p>
+                        <button class="book-btn" data-flight-id="${flight.id}" data-seat-class="${seatClass}">Đặt vé</button>
+                    </div>
+                </div>`;
+            container.innerHTML += flightHTML;
+        });
+    };
+
+    // Render chuyến đi
+    renderList(depContainer, flightsData.departure_flights);
+
+    // Render chuyến về nếu có
+    if (flightsData.return_flights) {
+        retResultsDiv.style.display = 'block';
+        renderList(retContainer, flightsData.return_flights);
     }
+    
+    document.getElementById("flight-results").style.display = 'block';
+    attachBookButtonListeners();
+}
 
-    // === LOGIC XỬ LÝ FORM TÌM CHUYẾN BAY ===
-    if (bookingForm) {
-        bookingForm.addEventListener("submit", async function(e) {
-            e.preventDefault();
-            const searchButton = this.querySelector('.search-btn');
-            searchButton.textContent = 'Đang tìm...';
-            searchButton.disabled = true;
+// === LOGIC XỬ LÝ FORM TÌM CHUYẾN BAY (PHIÊN BẢN MỚI HỖ TRỢ KHỨ HỒI) ===
+if (bookingForm) {
+    bookingForm.addEventListener("submit", async function(e) {
+        e.preventDefault();
+        const searchButton = this.querySelector('.search-btn');
+        searchButton.textContent = 'Đang tìm...';
+        searchButton.disabled = true;
 
-            const formData = new FormData(this);
-            const searchData = {
-                origin_iata: formData.get('origin'),
-                destination_iata: formData.get('destination'),
-                departure_date: formData.get('departure_date'),
-                passengers: formData.get('total_passengers'),
-                seat_class: formData.get('seat_class')
-            };
+        const formData = new FormData(this);
+        const tripType = formData.get('trip');
 
-            if (!searchData.origin_iata || !searchData.destination_iata || !searchData.departure_date) {
-                alert("Vui lòng chọn điểm đi, điểm đến và ngày đi.");
+        const searchData = {
+            origin_iata: formData.get('origin'),
+            destination_iata: formData.get('destination'),
+            departure_date: formData.get('departure_date'),
+            passengers: formData.get('total_passengers'),
+            seat_class: formData.get('seat_class')
+        };
+        
+        // Nếu là khứ hồi, thêm ngày về vào dữ liệu gửi đi
+        if (tripType === 'round') {
+            searchData.return_date = formData.get('return_date');
+            if (!searchData.return_date) {
+                alert("Vui lòng chọn ngày về cho chuyến bay khứ hồi.");
                 searchButton.textContent = 'Tìm chuyến bay';
                 searchButton.disabled = false;
                 return;
             }
+        }
 
-            try {
-                const response = await fetch('/api/flights/search', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(searchData)
-                });
-                const result = await response.json();
-                if (result.success && result.flights) {
-                    renderFlightResults(result.flights, searchData.seat_class);
-                } else {
-                    flightOptionsContainer.innerHTML = `<p style="color: #ffcdd2; text-align: center;">${result.message || 'Không tìm thấy chuyến bay nào.'}</p>`;
-                    flightResultsSection.style.display = 'block';
-                }
-            } catch (error) {
-                console.error("Lỗi khi tìm chuyến bay:", error);
-                flightOptionsContainer.innerHTML = `<p style="color: #ffcdd2; text-align: center;">Lỗi kết nối. Vui lòng thử lại.</p>`;
-                flightResultsSection.style.display = 'block';
-            } finally {
-                searchButton.textContent = 'Tìm chuyến bay';
-                searchButton.disabled = false;
+        try {
+            const response = await fetch('/api/flights/search', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(searchData)
+            });
+            const result = await response.json();
+
+            if (result.success) {
+                renderFlightResults(result.flights, searchData.seat_class);
+            } else {
+                alert("Lỗi: " + (result.message || "Không tìm thấy chuyến bay nào."));
             }
-        });
-    }
+        } catch (error) {
+            console.error("Lỗi khi tìm chuyến bay:", error);
+            alert("Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+            searchButton.textContent = 'Tìm chuyến bay';
+            searchButton.disabled = false;
+        }
+    });
+}
 
     // === LOGIC XỬ LÝ NÚT "ĐẶT VÉ" ===
     async function handleBookButtonClick() {

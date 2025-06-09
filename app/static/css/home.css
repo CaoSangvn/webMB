@@ -696,3 +696,18 @@
     height: 40px;   /* Đặt chiều cao tiêu chuẩn cho các logo là 40px */
     width: auto;    /* Chiều rộng sẽ tự động điều chỉnh theo tỷ lệ */
 }
+
+.flight-date-header {
+    color: #ffeb3b;
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 25px;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Bỏ khoảng trống margin-top cho tiêu đề đầu tiên */
+#flight-options-container > .flight-date-header:first-child {
+    margin-top: 0;
+}

@@ -225,14 +225,32 @@ def search_flights_api():
         if not origin_id or not destination_id:
             return jsonify({"success": False, "message": "Mã sân bay không hợp lệ."}), 400
 
-        flights = flight_model.search_flights(
+        # <<< LOGIC MỚI: XỬ LÝ CẢ CHUYẾN ĐI VÀ CHUYẾN VỀ >>>
+        # Tìm chuyến bay đi
+        departure_flights = flight_model.search_flights(
             origin_id,
             destination_id,
             data['departure_date'],
             int(data.get('passengers', 1)),
             data.get('seat_class', 'Phổ thông')
         )
-        return jsonify({"success": True, "flights": flights}), 200
+        
+        results = {"departure_flights": departure_flights}
+
+        # Nếu có ngày về (tức là tìm khứ hồi), thì tìm thêm chuyến bay về
+        if data.get('return_date'):
+            return_flights = flight_model.search_flights(
+                destination_id,  # Đảo ngược điểm đi/đến
+                origin_id,
+                data['return_date'],
+                int(data.get('passengers', 1)),
+                data.get('seat_class', 'Phổ thông')
+            )
+            results["return_flights"] = return_flights
+
+        return jsonify({"success": True, "flights": results}), 200
+        # <<< KẾT THÚC LOGIC MỚI >>>
+
     except Exception as e:
         current_app.logger.error(f"Lỗi API tìm kiếm chuyến bay: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi máy chủ khi tìm kiếm chuyến bay."}), 500

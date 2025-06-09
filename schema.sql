@@ -245,53 +245,56 @@ INSERT INTO airports (name, city, country, iata_code) VALUES
 ('Sân bay Phù Cát', 'Quy Nhơn', 'Việt Nam', 'UIH'),
 ('Sân bay Cần Thơ', 'Cần Thơ', 'Việt Nam', 'VCA');
 
--- Xóa dữ liệu cũ trong bảng flights trước khi chèn mới (tùy chọn nhưng khuyến khích)
+-- Xóa dữ liệu cũ trong bảng flights trước khi chèn mới
 DELETE FROM flights;
 
--- Chèn dữ liệu chuyến bay mẫu với ngày giờ cụ thể (Mốc thời gian: 09/06/2025)
+-- Chèn dữ liệu chuyến bay mẫu đầy đủ và đa dạng (Mốc thời gian: 09/06/2025)
 INSERT INTO flights (flight_number, departure_airport_id, arrival_airport_id, departure_time, arrival_time, economy_price, business_price, first_class_price, total_seats, available_seats, status) VALUES
 
--- ======= CHUYẾN BAY ĐỂ TEST CHECK-IN (KHỞI HÀNH TRONG 24H) =======
+-- ======= CHUYẾN BAY ĐỂ TEST CHECK-IN (KHỞI HÀNH < 24H) =======
 ('SA99', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-10 10:00:00', '2025-06-10 12:05:00', 1800000, 3500000, 6000000, 150, 140, 'scheduled'),
+('SA98', (SELECT id FROM airports WHERE iata_code = 'DAD'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-10 18:00:00', '2025-06-10 19:20:00', 1350000, 2500000, 3700000, 150, 145, 'scheduled'),
 
--- ======= CÁC CHUYẾN BAY TRONG TƯƠNG LAI =======
-('SA1', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-12 08:30:00', '2025-06-12 10:35:00', 1500000, 3000000, 5000000, 150, 145, 'scheduled'),
-('SA2', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-12 15:30:00', '2025-06-12 17:35:00', 1600000, 3200000, 5200000, 160, 160, 'scheduled'),
-('SA3', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), '2025-06-13 09:00:00', '2025-06-13 10:20:00', 1100000, 2200000, 3800000, 180, 170, 'scheduled'),
+-- ======= CÁC CHUYẾN BAY THÁNG 6 =======
+-- Cặp vé HAN <=> SGN
+('SA11', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-12 06:00:00', '2025-06-12 08:05:00', 1450000, 2900000, 4800000, 160, 150, 'scheduled'),
+('SA101', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-18 08:30:00', '2025-06-18 10:35:00', 1500000, 3000000, 5000000, 150, 145, 'scheduled'),
+('SA12', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-25 19:00:00', '2025-06-25 21:05:00', 1480000, 2950000, 4900000, 160, 160, 'scheduled'),
+('SA112', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-30 15:30:00', '2025-06-30 17:35:00', 1600000, 3200000, 5200000, 160, 160, 'scheduled'),
+
+-- Cặp vé SGN <=> PQC
 ('SA4', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'PQC'), '2025-06-14 13:00:00', '2025-06-14 14:00:00', 950000, 1900000, 3800000, 70, 65, 'scheduled'),
-('SA5', (SELECT id FROM airports WHERE iata_code = 'PQC'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-14 16:00:00', '2025-06-14 17:00:00', 980000, 1950000, 7000000, 150, 150, 'scheduled'),
-('SA6', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'CXR'), '2025-06-15 07:00:00', '2025-06-15 08:50:00', 2200000, 4500000, 3800000, 250, 240, 'scheduled'),
-('SA7', (SELECT id FROM airports WHERE iata_code = 'DAD'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-13 17:00:00', '2025-06-13 18:20:00', 1250000, 2550000, 4050000, 150, 150, 'scheduled'),
-('SA8', (SELECT id FROM airports WHERE iata_code = 'CXR'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-16 11:00:00', '2025-06-16 12:50:00', 2100000, 4300000, 6800000, 180, 180, 'scheduled'),
-('SA9', (SELECT id FROM airports WHERE iata_code = 'HPH'), (SELECT id FROM airports WHERE iata_code = 'HUI'), '2025-06-12 14:00:00', '2025-06-12 15:10:00', 800000, 1000000, 2000000, 70, 70, 'scheduled'),
-('SA10', (SELECT id FROM airports WHERE iata_code = 'DLI'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-14 18:00:00', '2025-06-14 18:50:00', 1300000, 2600000, 3000000, 150, 140, 'scheduled'),
-('SA11', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-11 06:00:00', '2025-06-11 08:05:00', 1450000, 2900000, 4800000, 160, 150, 'scheduled'),
-('SA12', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-11 19:00:00', '2025-06-11 21:05:00', 1480000, 2950000, 4900000, 160, 160, 'scheduled'),
-('SA13', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'VII'), '2025-06-14 16:30:00', '2025-06-14 17:40:00', 890000, 1750000, 2000000, 120, 115, 'scheduled'),
-('SA14', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'CXR'), '2025-06-12 13:00:00', '2025-06-12 14:20:00', 920000, 1900000, 3000000, 150, 150, 'scheduled'),
-('SA15', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'PQC'), '2025-06-15 06:00:00', '2025-06-15 08:20:00', 1750000, 3400000, 5200000, 180, 175, 'scheduled'),
+('SA104', (SELECT id FROM airports WHERE iata_code = 'PQC'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-06-20 15:00:00', '2025-06-20 16:00:00', 990000, 1980000, 3900000, 70, 70, 'scheduled'),
+
+-- Cặp vé HAN <=> DAD
+('SA3', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), '2025-06-13 09:00:00', '2025-06-13 10:20:00', 1100000, 2200000, 3800000, 180, 170, 'scheduled'),
+('SA103', (SELECT id FROM airports WHERE iata_code = 'DAD'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-06-19 11:00:00', '2025-06-19 12:20:00', 1150000, 2300000, 3900000, 180, 180, 'scheduled'),
+
+-- Chặng bay mới HPH <=> DLI
+('SA150', (SELECT id FROM airports WHERE iata_code = 'HPH'), (SELECT id FROM airports WHERE iata_code = 'DLI'), '2025-06-22 14:00:00', '2025-06-22 15:45:00', 1400000, 2800000, 4500000, 120, 120, 'scheduled'),
+('SA151', (SELECT id FROM airports WHERE iata_code = 'DLI'), (SELECT id FROM airports WHERE iata_code = 'HPH'), '2025-06-28 16:30:00', '2025-06-28 18:15:00', 1450000, 2900000, 4600000, 120, 110, 'scheduled'),
+
+-- ======= CÁC CHUYẾN BAY THÁNG 7 =======
+-- Cặp vé HAN <=> CXR
+('SA201', (SELECT id FROM airports WHERE iata_code = 'HAN'), (SELECT id FROM airports WHERE iata_code = 'CXR'), '2025-07-01 07:00:00', '2025-07-01 08:50:00', 2200000, 4500000, 6500000, 250, 240, 'scheduled'),
+('SA202', (SELECT id FROM airports WHERE iata_code = 'CXR'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-07-07 11:00:00', '2025-07-07 12:50:00', 2100000, 4300000, 6800000, 180, 180, 'scheduled'),
+
+-- Cặp vé SGN <=> DAD
+('SA203', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), '2025-07-05 17:00:00', '2025-07-05 18:20:00', 1250000, 2550000, 4050000, 150, 150, 'scheduled'),
+('SA204', (SELECT id FROM airports WHERE iata_code = 'DAD'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-07-12 13:00:00', '2025-07-12 14:20:00', 1350000, 2500000, 3700000, 150, 145, 'scheduled'),
+
+-- Cặp vé VII <=> SGN
+('SA210', (SELECT id FROM airports WHERE iata_code = 'VII'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-07-18 09:30:00', '2025-07-18 11:25:00', 1700000, 3400000, 5000000, 130, 130, 'scheduled'),
+('SA211', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'VII'), '2025-07-25 12:00:00', '2025-07-25 13:55:00', 1750000, 3500000, 5200000, 130, 125, 'scheduled'),
+
+-- Chuyến bay một chiều khác
+('SA205', (SELECT id FROM airports WHERE iata_code = 'HPH'), (SELECT id FROM airports WHERE iata_code = 'PQC'), '2025-07-10 11:00:00', '2025-07-10 13:10:00', 1600000, 3000000, 5000000, 140, 139, 'scheduled'),
+('SA206', (SELECT id FROM airports WHERE iata_code = 'DLI'), (SELECT id FROM airports WHERE iata_code = 'SGN'), '2025-07-15 18:00:00', '2025-07-15 18:50:00', 1300000, 2600000, 3000000, 150, 140, 'scheduled'),
+('SA207', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'CXR'), '2025-07-20 06:00:00', '2025-07-20 07:20:00', 1000000, 1950000, 3100000, 120, 120, 'scheduled'),
+('SA208', (SELECT id FROM airports WHERE iata_code = 'VCA'), (SELECT id FROM airports WHERE iata_code = 'HAN'), '2025-07-28 20:00:00', '2025-07-28 22:10:00', 1900000, 3800000, 5500000, 180, 180, 'scheduled'),
 
 -- ======= CHUYẾN BAY TRONG QUÁ KHỨ (ĐỂ TEST LỊCH SỬ) =======
-('SA20', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), '2025-06-01 10:00:00', '2025-06-01 11:20:00', 1200000, 2500000, 4000000, 150, 0, 'landed');
-
--- Dữ liệu mẫu cho bảng 'menu_items'
-
--- Xóa dữ liệu cũ trong bảng nếu bạn muốn chèn lại từ đầu (tùy chọn)
--- DELETE FROM menu_items;
-
-INSERT INTO menu_items (name, description, category, price_vnd, image_url, is_available) VALUES
-('Combo Cơm Gà Xối Mỡ', 'Cơm gà xối mỡ giòn rụm, kèm nước ngọt và canh.', 'combo', 120000, 'static/uploads/menu_images/sample_combo.jpg', 1),
-('Mì Ý Sốt Bò Bằm', 'Mì Ý chuẩn vị, sốt bò bằm đậm đà từ thịt bò Úc.', 'do_an_nong', 150000, 'static/uploads/menu_images/sample_mi_y.jpg', 1),
-('Phở Bò Đặc Biệt', 'Phở bò truyền thống với nước dùng thanh ngọt, đầy đủ thịt.', 'do_an_nong', 90000, NULL, 1),
-('Trà Đào Cam Sả', 'Trà đào thơm lừng kết hợp vị cam sả tươi mát, giải nhiệt.', 'do_uong', 50000, NULL, 1),
-('Snack Khoai Tây Vị Tảo Biển', 'Gói khoai tây chiên giòn tan, đậm vị tảo biển.', 'mon_an_vat', 25000, 0);
-
-
-INSERT INTO notifications (title, content, is_active, display_order) VALUES
-('Lịch bay mùa hè', '<strong>Cập nhật lịch bay mùa hè:</strong> SangAir tăng tần suất các chuyến bay đến Đà Nẵng, Quy Nhơn, Phú Quốc từ 01/06 đến 30/08.', 1, 0),
-('Ưu đãi thanh toán MoMo', 'Nhận ngay voucher giảm giá 50.000 VNĐ khi thanh toán vé máy bay qua ví điện tử MoMo.', 1, 1),
-('Check-in Online tiện lợi', 'Làm thủ tục trực tuyến nhanh chóng, tiết kiệm thời gian tại sân bay. Mở trước 24 giờ so với giờ khởi hành.', 1, 2),
-('Thông báo cũ (không hoạt động)', 'Chương trình khuyến mãi tháng 5 đã kết thúc.', 0, 3);
+('SA80', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), '2025-06-01 10:00:00', '2025-06-01 11:20:00', 1200000, 2500000, 4000000, 150, 0, 'landed');
 -- =================================================================
 -- DỮ LIỆU MẪU BỔ SUNG ĐỂ TEST
 -- =================================================================

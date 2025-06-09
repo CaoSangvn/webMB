@@ -13,14 +13,15 @@ def _get_db_connection():
 
 # app/models/flight_model.py
 def search_flights(origin_airport_id, destination_airport_id, departure_date_str, 
-                   passengers=1, seat_class="Phổ thông", search_day_range=7): # Đảm bảo có đủ 6 tham số (3 bắt buộc, 3 tùy chọn)
+                   passengers=1, seat_class="Phổ thông"):
+    """
+    Tìm kiếm các chuyến bay dựa trên điểm đi, điểm đến và NGÀY KHỞI HÀNH CHÍNH XÁC.
+    Phiên bản này đã được đơn giản hóa để khắc phục lỗi không tìm thấy.
+    """
     conn = _get_db_connection()
     flights_result = []
     try:
-        start_date_obj = datetime.strptime(departure_date_str, '%Y-%m-%d') # Đảm bảo datetime đã import
-        end_date_obj = start_date_obj + timedelta(days=search_day_range - 1) # Đảm bảo timedelta đã import
-        end_date_str = end_date_obj.strftime('%Y-%m-%d')
-
+        # Bỏ logic tìm kiếm trong 7 ngày, chỉ tìm chính xác ngày được chọn
         query = """
             SELECT 
                 f.id, f.flight_number, 
@@ -34,22 +35,21 @@ def search_flights(origin_airport_id, destination_airport_id, departure_date_str
             JOIN airports arr_airport ON f.arrival_airport_id = arr_airport.id
             WHERE f.departure_airport_id = ?
               AND f.arrival_airport_id = ?
-              AND date(f.departure_time) >= ?
-              AND date(f.departure_time) <= ? 
+              AND date(f.departure_time) = ? -- <<< SỬA LỖI: Tìm chính xác ngày
               AND f.available_seats >= ?
               AND f.status = 'scheduled'
             ORDER BY f.departure_time ASC;
         """
-        current_app.logger.info(f"Searching flights from {departure_date_str} to {end_date_str} for {passengers} passengers in {seat_class} class.")
-        cursor = conn.execute(query, (origin_airport_id, destination_airport_id, departure_date_str, end_date_str, passengers))
+        
+        cursor = conn.execute(query, (origin_airport_id, destination_airport_id, departure_date_str, passengers))
         raw_flights = cursor.fetchall()
 
         for row in raw_flights:
             flight_dict = dict(row)
-            # --- Logic chọn giá vé dựa trên seat_class (giữ nguyên) ---
-            if seat_class == "Thương gia" and flight_dict.get('business_price') is not None:
+            # --- Logic chọn giá vé (giữ nguyên) ---
+            if seat_class == "Thương gia":
                 flight_dict['price'] = flight_dict['business_price']
-            elif seat_class == "Hạng nhất" and flight_dict.get('first_class_price') is not None:
+            elif seat_class == "Hạng nhất":
                 flight_dict['price'] = flight_dict['first_class_price']
             else: 
                 flight_dict['price'] = flight_dict['economy_price']
@@ -63,31 +63,19 @@ def search_flights(origin_airport_id, destination_airport_id, departure_date_str
                 flight_dict['arrival_time_formatted'] = dt_arr.strftime('%H:%M %d/%m/%Y')
                 
                 duration = dt_arr - dt_dep
-                
-                # Tính toán tổng số giây, sau đó chuyển đổi sang ngày, giờ, phút
                 total_seconds = duration.total_seconds()
-                days = int(total_seconds // (24 * 3600))
-                remaining_seconds_after_days = total_seconds % (24 * 3600)
-                hours = int(remaining_seconds_after_days // 3600)
-                remaining_seconds_after_hours = remaining_seconds_after_days % 3600
-                minutes = int(remaining_seconds_after_hours // 60)
+                hours = int(total_seconds // 3600)
+                minutes = int((total_seconds % 3600) // 60)
 
-                duration_parts = []
-                if days > 0:
-                    duration_parts.append(f"{days} ngày")
-                if hours > 0:
-                    duration_parts.append(f"{hours} giờ")
-                if minutes > 0 or (days == 0 and hours == 0): # Hiển thị phút nếu có, hoặc nếu tổng thời gian < 1 giờ
-                    duration_parts.append(f"{minutes} phút")
-                
-                flight_dict['duration_formatted'] = " ".join(duration_parts) if duration_parts else "0 phút"
+                flight_dict['duration_formatted'] = f"{hours} giờ {minutes} phút"
 
             except (ValueError, TypeError) as e:
                  current_app.logger.error(f"Error formatting date/time for flight {flight_dict.get('flight_number')}: {e}")
-                 flight_dict['departure_date_form'] = flight_dict['departure_time'][:10] if flight_dict['departure_time'] else None
-                 flight_dict['departure_time_formatted'] = flight_dict['departure_time']
-                 flight_dict['arrival_time_formatted'] = flight_dict['arrival_time']
+                 flight_dict['departure_date_form'] = None
+                 flight_dict['departure_time_formatted'] = None
+                 flight_dict['arrival_time_formatted'] = None
                  flight_dict['duration_formatted'] = "N/A"
+            
             flights_result.append(flight_dict)
             
         return flights_result
