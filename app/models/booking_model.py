@@ -777,3 +777,66 @@ def delete_booking_by_admin(booking_id):
         raise # Ném lỗi để controller bắt
     finally:
         if conn: conn.close()
+def add_single_menu_item_to_booking(user_id, pnr, menu_item_id, quantity=1):
+    """
+    Thêm một món ăn duy nhất vào một đặt chỗ hiện có dựa trên PNR.
+    """
+    conn = _get_db_connection()
+    try:
+        conn.execute("BEGIN")
+
+        # Bước 1: Xác thực đặt chỗ bằng PNR và user_id
+        booking = conn.execute(
+            "SELECT id, status, ancillary_services_total, total_amount FROM bookings WHERE booking_code = ? AND user_id = ?",
+            (pnr, user_id)
+        ).fetchone()
+
+        if not booking:
+            raise ValueError("Không tìm thấy Mã đặt chỗ hoặc bạn không có quyền thay đổi.")
+
+        if booking['status'] not in ['confirmed', 'payment_received', 'changed']:
+            raise ValueError(f"Không thể thêm dịch vụ cho đặt chỗ có trạng thái '{booking['status']}'.")
+
+        # Bước 2: Lấy thông tin và giá của món ăn
+        menu_item = conn.execute(
+            "SELECT price_vnd FROM menu_items WHERE id = ? AND is_available = 1",
+            (menu_item_id,)
+        ).fetchone()
+
+        if not menu_item:
+            raise ValueError(f"Món ăn không tồn tại hoặc không khả dụng.")
+
+        # Bước 3: Tính toán chi phí và chèn vào bảng trung gian
+        price_at_booking = menu_item['price_vnd']
+        item_cost = price_at_booking * quantity
+        booking_id = booking['id']
+
+        conn.execute(
+            "INSERT INTO booking_menu_items (booking_id, menu_item_id, quantity, price_at_booking) VALUES (?, ?, ?, ?)",
+            (booking_id, menu_item_id, quantity, price_at_booking)
+        )
+
+        # Bước 4: Cập nhật tổng tiền trong bảng bookings
+        new_ancillary_total = booking['ancillary_services_total'] + item_cost
+        new_total_amount = booking['total_amount'] + item_cost
+
+        conn.execute(
+            """
+            UPDATE bookings
+            SET ancillary_services_total = ?, total_amount = ?, status = 'changed', payment_status = 'pending', updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (new_ancillary_total, new_total_amount, booking_id)
+        )
+        
+        conn.commit()
+        return {"success": True, "booking_id": booking_id, "message": "Đã thêm món ăn vào đặt chỗ."}
+
+    except (ValueError, sqlite3.Error) as e:
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"Lỗi khi thêm món ăn vào PNR {pnr}: {e}", exc_info=True)
+        return {"success": False, "message": str(e)}
+    finally:
+        if conn:
+            conn.close()

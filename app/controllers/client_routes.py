@@ -519,3 +519,35 @@ def cancellation_policy_page():
 def baggage_policy_page():
     current_user_name = session.get('user_name')
     return render_template("client/baggage_policy.html", current_user_name=current_user_name)
+@client_bp.route('/api/bookings/add-single-menu-item', methods=['POST'])
+@login_required
+def add_single_menu_item_api():
+    data = request.get_json()
+    pnr = data.get('pnr')
+    menu_item_id = data.get('menu_item_id')
+
+    if not pnr or not menu_item_id:
+        return jsonify({"success": False, "message": "Thiếu Mã đặt chỗ hoặc thông tin món ăn."}), 400
+
+    try:
+        result = booking_model.add_single_menu_item_to_booking(
+            user_id=session['user_id'],
+            pnr=pnr,
+            menu_item_id=int(menu_item_id)
+        )
+        
+        if result.get('success'):
+            session['booking_id_to_pay'] = result.get('booking_id')
+            return jsonify({
+                "success": True,
+                "message": result.get('message'),
+                "redirect_url": url_for('client_bp.payment_page_render')
+            }), 200
+        else:
+            return jsonify({"success": False, "message": result.get('message')}), 400
+
+    except ValueError as ve:
+        return jsonify({"success": False, "message": str(ve)}), 400
+    except Exception as e:
+        current_app.logger.error(f"API Add Single Menu Item Error: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500

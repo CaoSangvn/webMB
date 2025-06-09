@@ -9,36 +9,78 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- HÀM TẠO CARD CHO MỘT MÓN ĂN ---
     function createMenuItemCard(item) {
-        const card = document.createElement('div');
-        card.className = 'menu-card';
+    const card = document.createElement('div');
+    card.className = 'menu-card';
 
-        // Sử dụng image_url_full trả về từ API
-        const imageUrl = item.image_url_full || '/static/images/placeholder-food.png';
+    const imageUrl = item.image_url_full || '/static/images/placeholder-food.png';
 
-        let pricesHTML = `<p>Giá: ${(item.price_vnd || 0).toLocaleString('vi-VN')} VND</p>`;
-        if (item.price_usd) {
-            pricesHTML += `<p>USD: $${item.price_usd.toFixed(2)}</p>`;
-        }
-        
-        let descriptionHTML = '';
-        if (item.description) {
-            descriptionHTML = `<p class="item-card-description">${item.description}</p>`;
-        }
+    let pricesHTML = `<p>Giá: ${(item.price_vnd || 0).toLocaleString('vi-VN')} VND</p>`;
+    if (item.price_usd) {
+        pricesHTML += `<p>USD: $${item.price_usd.toFixed(2)}</p>`;
+    }
+    
+    let descriptionHTML = '';
+    if (item.description) {
+        descriptionHTML = `<p class="item-card-description">${item.description}</p>`;
+    }
 
-        card.innerHTML = `
+    card.innerHTML = `
+        <div class="menu-card-image-container">
             <img src="${imageUrl}" alt="${item.name}" onerror="this.onerror=null;this.src='/static/images/placeholder-food.png';">
+        </div>
+        <div class="menu-card-content">
             <h3>${item.name}</h3>
             ${descriptionHTML}
-            ${pricesHTML}
-            <button class="select-btn" data-item-id="${item.id}" data-item-name="${item.name}">Chọn món</button>
-        `;
+            <div class="price-and-button-wrapper">
+                ${pricesHTML}
+                <button class="select-btn" data-item-id="${item.id}" data-item-name="${item.name}">Chọn món</button>
+            </div>
+        </div>
+    `;
+    
+    // <<< THAY ĐỔI LOGIC Ở ĐÂY >>>
+    const selectButton = card.querySelector('.select-btn');
+    selectButton.addEventListener('click', async function() {
+        const pnr = prompt(`Vui lòng nhập Mã đặt chỗ (PNR) của bạn để thêm món "${this.dataset.itemName}":`);
         
-        card.querySelector('.select-btn').addEventListener('click', function() {
-             alert(`Bạn đã chọn: ${this.dataset.itemName}. Chức năng thêm vào đặt chỗ đang được phát triển!`);
-        });
+        if (!pnr || pnr.trim() === '') {
+            alert("Vui lòng nhập Mã đặt chỗ.");
+            return;
+        }
 
-        return card;
-    }
+        this.textContent = 'Đang xử lý...';
+        this.disabled = true;
+
+        try {
+            const response = await fetch('/api/bookings/add-single-menu-item', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    pnr: pnr.trim().toUpperCase(), 
+                    menu_item_id: this.dataset.itemId 
+                })
+            });
+
+            const result = await response.json();
+
+            if (response.ok && result.success) {
+                alert(result.message || "Thêm món thành công! Đang chuyển đến trang thanh toán...");
+                window.location.href = result.redirect_url;
+            } else {
+                alert("Lỗi: " + (result.message || "Không thể thêm món ăn. Vui lòng kiểm tra lại Mã đặt chỗ."));
+            }
+
+        } catch (error) {
+            console.error("Lỗi khi thêm món ăn:", error);
+            alert("Lỗi kết nối. Vui lòng thử lại.");
+        } finally {
+            this.textContent = 'Chọn món';
+            this.disabled = false;
+        }
+    });
+
+    return card;
+}
 
     // --- HÀM LẤY DỮ LIỆU TỪ API VÀ HIỂN THỊ ---
     async function populateEMenu() {
