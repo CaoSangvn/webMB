@@ -84,6 +84,37 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+    function initNoticeCarousel() {
+    const container = document.getElementById('dynamic-notice-items-container');
+    if (!container) return;
+
+    const items = container.querySelectorAll('p');
+    if (items.length <= 1) {
+        // Nếu chỉ có 1 tin, cho nó hiện ra và không làm gì thêm
+        if (items.length === 1) {
+            items[0].classList.add('is-active');
+        }
+        return;
+    }
+
+    let currentItemIndex = 0;
+
+    // Lúc đầu, chỉ hiển thị mục đầu tiên
+    items.forEach(item => item.classList.remove('is-active'));
+    items[currentItemIndex].classList.add('is-active');
+
+    // Bắt đầu vòng lặp thay đổi thông báo
+    setInterval(() => {
+        // Ẩn mục hiện tại
+        items[currentItemIndex].classList.remove('is-active');
+
+        // Tính toán vị trí của mục tiếp theo, quay vòng lại nếu hết
+        currentItemIndex = (currentItemIndex + 1) % items.length;
+
+        // Hiển thị mục tiếp theo
+        items[currentItemIndex].classList.add('is-active');
+    }, 5000); // Đổi thông báo sau mỗi 5 giây
+}
     // <<< BẮT ĐẦU PHẦN CẬP NHẬT MỚI >>>
     // Hàm để gọi API và hiển thị thông báo trên trang chủ
     const loadHomepageNotices = async () => {
@@ -103,12 +134,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (data.notice_items && data.notice_items.length > 0) {
                     data.notice_items.forEach(item => {
                         const p = document.createElement('p');
+                        // Sử dụng .textContent để an toàn hơn, trừ khi bạn chắc chắn nội dung là HTML an toàn
                         p.innerHTML = item.content; 
                         noticeContainer.appendChild(p);
                     });
                 } else {
                     noticeContainer.innerHTML = '<p>Hiện không có thông báo nào.</p>';
                 }
+
+                // <<< THAY ĐỔI QUAN TRỌNG: GỌI HÀM CAROUSEL TẠI ĐÂY >>>
+                // Khởi tạo hiệu ứng trượt sau khi đã thêm các thông báo vào DOM
+                initNoticeCarousel();
+
             }
         } catch (error) {
             console.error('Lỗi khi tải thông báo trang chủ:', error);

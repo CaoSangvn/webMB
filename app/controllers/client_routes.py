@@ -460,15 +460,25 @@ def add_ancillary_service_api():
         return jsonify({"success": False, "message": "Thiếu thông tin Mã đặt chỗ hoặc Dịch vụ."}), 400
 
     try:
+        # Gọi hàm model đã được cập nhật
         result = booking_model.add_ancillary_service_to_booking(session['user_id'], pnr, service_id)
+        
+        # Xử lý kết quả trả về từ model
         if result.get('success'):
             session['booking_id_to_pay'] = result.get('booking_id')
             return jsonify({
                 "success": True,
-                "message": "Đã thêm dịch vụ thành công! Đang chuyển đến trang thanh toán...",
+                "message": result.get('message', "Đã thêm dịch vụ thành công! Đang chuyển đến trang thanh toán..."),
                 "redirect_url": url_for('client_bp.payment_page_render')
             }), 200
-    except ValueError as ve:
+        else:
+            # Trả về lỗi nếu model xử lý không thành công
+            return jsonify({
+                "success": False, 
+                "message": result.get('message', "Không thể thêm dịch vụ.")
+            }), 400
+
+    except ValueError as ve: # Bắt các lỗi validation từ model (dù đã xử lý trong model nhưng để chắc chắn)
         return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
         current_app.logger.error(f"API Add Service Error: {e}", exc_info=True)

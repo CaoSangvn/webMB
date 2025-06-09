@@ -282,15 +282,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 return; 
             }
 
-            const userApiData = { // Dữ liệu gửi lên API, khớp với key trong form HTML admin
-                userFullName: fullName,
-                userEmail: email,
-                userPhone: phone,
-                userStatus: status,
-                // userRole: role, // Gửi role nếu admin có thể set
+            const userApiData = { 
+                full_name: fullName,
+                email: email,
+                phone_number: phone,
+                status: status,
             };
-            if (password) { // Chỉ gửi mật khẩu nếu được nhập (cho cả thêm mới và sửa)
-                userApiData.userPassword = password;
+            if (password) { // Chỉ gửi mật khẩu nếu được nhập
+                userApiData.password = password;
             }
 
             let url = '/admin/api/users';

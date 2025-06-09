@@ -15,9 +15,10 @@
   border-radius: 8px;
   box-shadow: 0 2px 6px rgba(255, 153, 0, 0.3);
   position: relative;
-  align-self: flex-start; 
-  max-height: 550px; 
-  overflow-y: auto; 
+  align-self: flex-start;
+  
+  /* Cho phép chiều cao tự động theo nội dung */
+  height: auto; 
 }
 
 .notice-section h1 {
@@ -710,4 +711,38 @@
 /* Bỏ khoảng trống margin-top cho tiêu đề đầu tiên */
 #flight-options-container > .flight-date-header:first-child {
     margin-top: 0;
+}
+
+* Container chứa các thông báo, đóng vai trò là khung nhìn (viewport) */
+#dynamic-notice-items-container {
+    position: relative;
+    width: 100%;
+    /* Thêm hiệu ứng chuyển động mượt mà khi chiều cao thay đổi */
+    transition: height 0.5s ease-in-out;
+}
+
+/* Định dạng cho TỪNG mục thông báo */
+#dynamic-notice-items-container > p {
+    width: 100%;
+    margin: 0;
+    
+    /* Hiệu ứng mờ dần khi chuyển đổi */
+    transition: opacity 0.5s ease-in-out;
+}
+
+/* Ẩn các mục không hoạt động */
+#dynamic-notice-items-container > p:not(.is-active) {
+    /* Dùng position: absolute để chúng không ảnh hưởng đến chiều cao của hộp */
+    position: absolute;
+    top: 0;
+    left: 0;
+    opacity: 0;
+    visibility: hidden;
+}
+
+/* Mục đang hoạt động sẽ quyết định chiều cao của hộp */
+#dynamic-notice-items-container > p.is-active {
+    position: relative; /* Trả về luồng hiển thị bình thường */
+    opacity: 1;
+    visibility: visible;
 }

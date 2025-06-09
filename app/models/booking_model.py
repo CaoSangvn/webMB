@@ -595,18 +595,72 @@ def process_checkin(booking_id, passenger_ids):
             conn.close()
 
 def add_ancillary_service_to_booking(user_id, pnr, service_id):
-    # TODO: Implement this function
-    print(f"Adding ancillary service {service_id} to booking {pnr} for user {user_id}")
-    return {"success": False}
-def get_new_bookings_count_24h():
-    """Đếm số lượng đặt chỗ được tạo trong vòng 24 giờ qua."""
+    """
+    Thêm một dịch vụ cộng thêm (ancillary service) vào một đặt chỗ hiện có.
+    Hàm này sẽ tính toán chi phí phát sinh và cập nhật tổng tiền, chuyển booking sang trạng thái cần thanh toán thêm.
+    """
     conn = _get_db_connection()
     try:
-        query = "SELECT COUNT(id) as count FROM bookings WHERE booking_time >= datetime('now', '-24 hours')"
-        result = conn.execute(query).fetchone()
-        return result['count'] if result else 0
+        conn.execute("BEGIN")
+
+        # Bước 1: Xác thực đặt chỗ bằng PNR và user_id
+        booking = conn.execute(
+            "SELECT id, status, ancillary_services_total, total_amount FROM bookings WHERE booking_code = ? AND user_id = ?",
+            (pnr.upper(), user_id)
+        ).fetchone()
+
+        if not booking:
+            raise ValueError("Không tìm thấy Mã đặt chỗ hoặc bạn không có quyền thay đổi.")
+
+        # Chỉ cho phép thêm dịch vụ vào các đặt chỗ đã xác nhận hoặc đã thanh toán
+        if booking['status'] not in ['confirmed', 'payment_received', 'changed']:
+            raise ValueError(f"Không thể thêm dịch vụ cho đặt chỗ có trạng thái '{booking['status']}'.")
+
+        # Bước 2: Lấy thông tin và giá của dịch vụ từ bảng ancillary_services
+        service = conn.execute(
+            "SELECT price_vnd FROM ancillary_services WHERE id = ? AND is_available = 1",
+            (service_id,)
+        ).fetchone()
+
+        if not service:
+            raise ValueError("Dịch vụ không tồn tại hoặc không khả dụng.")
+
+        # Bước 3: Tính toán chi phí và chèn vào bảng trung gian booking_ancillary_services
+        price_at_booking = service['price_vnd']
+        booking_id = booking['id']
+
+        # Chèn bản ghi mới, giả sử mỗi lần chỉ thêm 1 dịch vụ (quantity = 1)
+        conn.execute(
+            "INSERT INTO booking_ancillary_services (booking_id, ancillary_service_id, quantity, price_at_booking) VALUES (?, ?, ?, ?)",
+            (booking_id, service_id, 1, price_at_booking)
+        )
+
+        # Bước 4: Cập nhật lại tổng tiền trong bảng bookings
+        new_ancillary_total = booking['ancillary_services_total'] + price_at_booking
+        new_total_amount = booking['total_amount'] + price_at_booking
+
+        # Cập nhật tổng tiền dịch vụ, tổng tiền cuối cùng và đổi trạng thái booking để yêu cầu thanh toán thêm
+        conn.execute(
+            """
+            UPDATE bookings
+            SET ancillary_services_total = ?, total_amount = ?, status = 'changed', payment_status = 'pending', updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (new_ancillary_total, new_total_amount, booking_id)
+        )
+        
+        conn.commit()
+        return {"success": True, "booking_id": booking_id, "message": "Đã thêm dịch vụ vào đặt chỗ."}
+
+    except (ValueError, sqlite3.Error) as e:
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"Lỗi khi thêm dịch vụ vào PNR {pnr}: {e}", exc_info=True)
+        # Trả về success: False và thông báo lỗi cụ thể
+        return {"success": False, "message": str(e)}
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 def get_monthly_revenue():
     """Tính tổng doanh thu từ các đặt chỗ đã thành công trong tháng hiện tại."""
