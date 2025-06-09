@@ -439,6 +439,7 @@
   margin-bottom: 10px;
   box-sizing: border-box;
   min-height: 130px;
+  overflow: hidden;
 }
 
 .news-vertical-item img {
@@ -713,7 +714,7 @@
     margin-top: 0;
 }
 
-* Container chứa các thông báo, đóng vai trò là khung nhìn (viewport) */
+/* Container chứa các thông báo, đóng vai trò là khung nhìn (viewport) */
 #dynamic-notice-items-container {
     position: relative;
     width: 100%;

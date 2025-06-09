@@ -402,4 +402,78 @@ if (bookingForm) {
             });
         }
     }
+    const destinations = document.querySelectorAll(".destination");
+    const departureSelect = document.getElementById("departure");
+    const destinationSelect = document.getElementById("destination");
+
+
+    if (destinations.length > 0 && departureSelect && destinationSelect && bookingForm) {
+        destinations.forEach(dest => {
+        dest.addEventListener("click", () => {
+            const locationName = dest.getAttribute("data-destination");
+            let iataCodeForLocation = "";
+
+            for (let option of destinationSelect.options) {
+            if (option.textContent.includes(locationName)) {
+                iataCodeForLocation = option.value;
+                break;
+            }
+            }
+
+            if (!departureSelect.value && departureSelect.querySelector('option[value="HAN"]')) {
+            departureSelect.value = "HAN";
+            }
+
+            if (iataCodeForLocation) {
+            destinationSelect.value = iataCodeForLocation;
+            } else if (destinationSelect.options.length > 1) {
+            destinationSelect.selectedIndex = 1;
+            }
+
+            bookingForm.scrollIntoView({ behavior: "smooth" });
+            });
+        });
+    }
 });
+
+const newsTrack = document.querySelector(".news-track");
+if (newsTrack) {
+    const newsItems = newsTrack.querySelectorAll(".news-vertical-item");
+    if (newsItems.length > 0) {
+        const visibleCount = 4;  // 👈 Hiển thị 4 tin
+        const itemHeight = newsItems[0].offsetHeight + 10; // 10px là margin-bottom giả định
+        const totalNewsItems = newsItems.length;
+
+        // Nhân bản 4 item đầu để tạo hiệu ứng lặp mượt
+        for (let i = 0; i < Math.min(visibleCount, totalNewsItems); i++) {
+            const clone = newsItems[i].cloneNode(true);
+            newsTrack.appendChild(clone);
+        }
+
+        let newsIndex = 0;
+        let allowNewsTransition = true;
+
+        function updateNewsScroll() {
+            newsTrack.style.transition = allowNewsTransition ? "transform 0.6s ease-in-out" : "none";
+            newsTrack.style.transform = `translateY(-${newsIndex * itemHeight}px)`;
+        }
+
+        if (totalNewsItems > visibleCount) {
+            setInterval(() => {
+                newsIndex++;
+                allowNewsTransition = true;
+                updateNewsScroll();
+
+                if (newsIndex === totalNewsItems) {
+                    setTimeout(() => {
+                        allowNewsTransition = false;
+                        newsIndex = 0;
+                        updateNewsScroll();
+                    }, 650);
+                }
+            }, 5000);
+        }
+
+        updateNewsScroll();
+    }
+}
