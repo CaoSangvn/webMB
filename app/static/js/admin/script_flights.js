@@ -34,13 +34,110 @@ document.addEventListener('DOMContentLoaded', function() {
         "scheduled": "status-scheduled", "on-time": "status-on-time", "delayed": "status-delayed",
         "cancelled": "status-cancelled", "departed": "status-departed", "landed": "status-arrived" // Đã sửa 'arrived' thành 'landed'
     };
-    function getTodayDateString() {
+   function getTodayDateString() {
         const today = new Date();
         const year = today.getFullYear();
-        const month = String(today.getMonth() + 1).padStart(2, '0'); // Tháng bắt đầu từ 0
+        const month = String(today.getMonth() + 1).padStart(2, '0');
         const day = String(today.getDate()).padStart(2, '0');
         return `${year}-${month}-${day}`;
     }
+
+    // Cập nhật hàm openFlightModal để xử lý ngày
+    async function openFlightModal(title = "Thêm chuyến bay mới", flightIdToEdit = null) {
+        if (!flightFormModal || !flightModalTitle || !flightForm) {
+            console.error("Modal elements not found!");
+            return;
+        }
+        
+        flightModalTitle.textContent = title;
+        flightForm.reset(); 
+        editingFlightId = flightIdToEdit;
+        const hiddenFlightIdInput = document.getElementById('flightId');
+        if (hiddenFlightIdInput) {
+            hiddenFlightIdInput.value = flightIdToEdit || '';
+        }
+
+        const flightStatusGroup = document.getElementById('flightStatusGroup');
+        const todayString = getTodayDateString();
+
+        // Thiết lập min cho ngày đi là ngày hôm nay
+        if (departureDateInput) {
+            departureDateInput.min = todayString;
+        }
+        
+        // Thiết lập min ban đầu cho ngày đến cũng là ngày hôm nay
+        // Nó sẽ được cập nhật chính xác hơn khi ngày đi thay đổi
+        if (arrivalDateInput) {
+            arrivalDateInput.min = todayString;
+        }
+        
+        await fetchAndPopulateAirports();
+
+        if (flightIdToEdit) { 
+            // Chế độ Sửa
+            if (flightStatusGroup) flightStatusGroup.style.display = 'block';
+            try {
+                const response = await fetch(`/admin/api/flights/${flightIdToEdit}`);
+                const data = await response.json();
+
+                if (data.success && data.flight) {
+                    const flightData = data.flight;
+                    // Điền dữ liệu vào form (giữ nguyên logic điền dữ liệu của bạn)
+                    if (departureAirportSelect) departureAirportSelect.value = flightData.departure_airport_iata; 
+                    if (arrivalAirportSelect) arrivalAirportSelect.value = flightData.arrival_airport_iata;
+                    
+                    const depDateValue = flightData.departureDate || flightData.departure_date_form;
+                    if (departureDateInput) departureDateInput.value = depDateValue;
+                    if (departureTimeInput) departureTimeInput.value = flightData.departureTime || flightData.departure_time_form;
+                    
+                    const arrDateValue = flightData.arrivalDate || flightData.arrival_date_form;
+                    if (arrivalDateInput) arrivalDateInput.value = arrDateValue;
+                    if (arrivalTimeInput) arrivalTimeInput.value = flightData.arrivalTime || flightData.arrival_time_form;
+
+                    // QUAN TRỌNG: Cập nhật min cho ngày đến dựa trên ngày đi đã tải
+                    if (arrivalDateInput && depDateValue) {
+                        arrivalDateInput.min = depDateValue;
+                    }
+                    
+                    document.getElementById('basePrice').value = flightData.economy_price;
+                    document.getElementById('totalSeats').value = flightData.total_seats;
+                    document.getElementById('flightStatus').value = flightData.status;
+                } else { 
+                    alert("Lỗi tải chi tiết chuyến bay: " + (data.message || "Không rõ lỗi"));
+                    closeFlightModal(); return; 
+                }
+            } catch (error) { 
+                console.error("Lỗi khi lấy chi tiết chuyến bay:", error);
+                alert("Lỗi kết nối khi lấy chi tiết chuyến bay.");
+                closeFlightModal(); return; 
+            }
+        } else { 
+            // Chế độ Thêm mới
+            if (flightStatusGroup) flightStatusGroup.style.display = 'none';
+        }
+        flightFormModal.style.display = 'block';
+    }
+
+    // Event Listener để cập nhật `min` của ngày đến khi ngày đi thay đổi
+    if (departureDateInput && arrivalDateInput) {
+        departureDateInput.addEventListener('change', function() {
+            const selectedDepartureDate = this.value;
+            
+            if (selectedDepartureDate) {
+                // Đặt ngày tối thiểu cho arrivalDate là ngày đi đã chọn
+                arrivalDateInput.min = selectedDepartureDate;
+                
+                // Nếu ngày đến hiện tại sớm hơn ngày đi mới, reset ngày đến
+                if (arrivalDateInput.value && arrivalDateInput.value < selectedDepartureDate) {
+                    arrivalDateInput.value = selectedDepartureDate;
+                }
+            } else {
+                // Nếu ngày đi bị xóa, reset min của ngày đến về hôm nay
+                arrivalDateInput.min = getTodayDateString();
+            }
+        });
+    }
+
      // --- HÀM MỚI: CẬP NHẬT ICON SẮP XẾP TRÊN HEADER ---
     function updateSortIcons(clickedHeader) {
         document.querySelectorAll('#flightsTable th[data-sort-by]').forEach(th => {

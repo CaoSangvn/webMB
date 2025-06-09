@@ -18,7 +18,72 @@ document.addEventListener('DOMContentLoaded', function() {
     const seatFeeDisplay = document.getElementById("seat-fee-display");
     const totalAncillaryCostDisplay = document.getElementById("total-ancillary-cost-display");
     const luggageSeatingForm = document.getElementById("luggage-seating-form");
+    const departureDateInput = document.getElementById('departure-date');
+    const tripTypeRadios = document.querySelectorAll('input[name="trip"]');
+    const returnDateGroup = document.getElementById('return-date-group');
+    const returnDateInput = document.getElementById('return-date');
+    function handleTripTypeChange() {
+        // Tìm radio button đang được chọn
+        const selectedTripType = document.querySelector('input[name="trip"]:checked').value;
+        
+        if (selectedTripType === 'oneway') {
+            // Nếu là "Một chiều", ẩn ô ngày về và xóa giá trị
+            if (returnDateGroup) {
+                returnDateGroup.style.display = 'none';
+            }
+            if (returnDateInput) {
+                returnDateInput.value = ''; 
+            }
+        } else { // Nếu là "Khứ hồi"
+            // Hiện lại ô ngày về
+            if (returnDateGroup) {
+                returnDateGroup.style.display = 'block';
+            }
+        }
+    }
 
+    // Gắn sự kiện 'change' cho tất cả các radio button có name="trip"
+    if (tripTypeRadios.length > 0) {
+        tripTypeRadios.forEach(radio => {
+            radio.addEventListener('change', handleTripTypeChange);
+        });
+        
+        // Chạy hàm một lần khi tải trang để đảm bảo trạng thái ban đầu đúng
+        // (nút "Khứ hồi" đang được chọn sẵn)
+        handleTripTypeChange();
+    }
+
+    // Hàm helper để lấy ngày hôm nay theo định dạng YYYY-MM-DD
+    function getTodayDateString() {
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    // Thiết lập ngày tối thiểu cho ngày đi và ngày về
+    if (departureDateInput && returnDateInput) {
+        const today = getTodayDateString();
+        
+        // Đặt ngày nhỏ nhất được chọn là ngày hôm nay cho cả hai trường
+        departureDateInput.min = today;
+        returnDateInput.min = today;
+
+        // Tùy chọn: Đặt giá trị mặc định cho ngày đi là ngày hôm nay cho tiện dụng
+        departureDateInput.value = today;
+
+        // Thêm sự kiện để khi chọn ngày đi, ngày về không thể nhỏ hơn
+        departureDateInput.addEventListener('change', function() {
+            if (this.value) {
+                returnDateInput.min = this.value;
+                // Nếu ngày về hiện tại nhỏ hơn ngày đi mới, cập nhật ngày về
+                if (returnDateInput.value < this.value) {
+                    returnDateInput.value = this.value;
+                }
+            }
+        });
+    }
     // <<< BẮT ĐẦU PHẦN CẬP NHẬT MỚI >>>
     // Hàm để gọi API và hiển thị thông báo trên trang chủ
     const loadHomepageNotices = async () => {
@@ -96,6 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (baggageOptionSelect) baggageOptionSelect.addEventListener("change", updateAncillaryFees);
     if (seatPreferenceSelect) seatPreferenceSelect.addEventListener("change", updateAncillaryFees);
     if (extraLegroomCheckbox) extraLegroomCheckbox.addEventListener("change", updateAncillaryFees);
+
     updateAncillaryFees();
 
     // === LOGIC XỬ LÝ NÚT "XÁC NHẬN LỰA CHỌN" (SỬA LỖI 405) ===

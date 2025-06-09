@@ -219,9 +219,23 @@ def create_booking(user_id, flight_id, passengers_data, seat_class_booked, num_a
         
         booking_id = cursor.lastrowid
 
+        # <<< SỬA LỖI Ở ĐÂY: TÁCH VÀ LƯU FIRST_NAME, LAST_NAME CHO HÀNH KHÁCH >>>
         for pax_data in passengers_data:
-            conn.execute("INSERT INTO passengers (booking_id, full_name, passenger_type) VALUES (?, ?, ?)",
-                         (booking_id, pax_data.get('full_name', 'Hành khách'), pax_data.get('type', 'adult')))
+            full_name = pax_data.get('full_name', 'Hành khách').strip()
+            
+            # Logic tách tên: từ đầu tiên là Họ (last_name), phần còn lại là Tên (first_name)
+            name_parts = full_name.split()
+            last_name = name_parts[0] if name_parts else full_name
+            first_name = ' '.join(name_parts[1:]) if len(name_parts) > 1 else ''
+
+            conn.execute(
+                """
+                INSERT INTO passengers (booking_id, full_name, first_name, last_name, passenger_type) 
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (booking_id, full_name, first_name, last_name, pax_data.get('type', 'adult'))
+            )
+        # <<< KẾT THÚC SỬA LỖI >>>
 
         conn.execute("UPDATE flights SET available_seats = available_seats - ? WHERE id = ?", (total_passengers, flight_id))
         
@@ -238,22 +252,46 @@ def get_bookings_by_user_id(user_id):
     """Lấy tất cả đặt chỗ của một người dùng."""
     conn = _get_db_connection()
     try:
+        # <<< SỬA LỖI Ở ĐÂY: Query ban đầu sẽ không lấy chi tiết hành khách ngay lập tức >>>
+        # Query vẫn giữ nguyên để lấy danh sách các booking chính
         query = """
             SELECT 
-                b.*, b.status as booking_status, b.booking_code as pnr,
-                f.flight_number, f.departure_time,
-                dep.city as departure_city, arr.city as arrival_city,
-                strftime('%H:%M %d/%m/%Y', f.departure_time) as departure_datetime_formatted
+                b.*, b.id as booking_id, b.status as booking_status, b.booking_code as pnr,
+                f.flight_number, f.departure_time, f.arrival_time,
+                dep.city as departure_city, dep.iata_code as departure_iata,
+                arr.city as arrival_city, arr.iata_code as arrival_iata,
+                strftime('%H:%M, %d/%m/%Y', f.departure_time) as departure_datetime_formatted
             FROM bookings b
             JOIN flights f ON b.flight_id = f.id
             JOIN airports dep ON f.departure_airport_id = dep.id
             JOIN airports arr ON f.arrival_airport_id = arr.id
             WHERE b.user_id = ? ORDER BY f.departure_time DESC
         """
-        bookings = conn.execute(query, (user_id,)).fetchall()
-        return [dict(row) for row in bookings]
+        bookings_raw = conn.execute(query, (user_id,)).fetchall()
+        
+        # <<< SỬA LỖI Ở ĐÂY: Lặp qua từng booking để lấy và đính kèm danh sách hành khách >>>
+        bookings_with_passengers = []
+        for booking_row in bookings_raw:
+            booking_dict = dict(booking_row)
+            
+            # Lấy danh sách hành khách cho booking hiện tại
+            passengers_raw = conn.execute(
+                "SELECT * FROM passengers WHERE booking_id = ?", 
+                (booking_dict['booking_id'],)
+            ).fetchall()
+            
+            # Đính kèm danh sách hành khách vào dictionary của booking
+            booking_dict['passengers'] = [dict(p) for p in passengers_raw]
+            
+            bookings_with_passengers.append(booking_dict)
+            
+        return bookings_with_passengers
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi lấy booking của user {user_id}: {e}", exc_info=True)
+        return []
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 def get_booking_by_pnr_and_name(pnr, last_name, first_name):
     """Tra cứu đặt chỗ bằng PNR và tên."""
@@ -343,19 +381,218 @@ def cancel_booking_by_user(user_id, booking_id):
 # You should implement these based on your application's logic.
 
 def add_menu_items_to_booking(booking_id, user_id, selected_items):
-    # TODO: Implement this function
-    print(f"Adding menu items for booking {booking_id} by user {user_id}: {selected_items}")
-    return False, "Chức năng chưa được triển khai."
+    """
+    Thêm các suất ăn được chọn vào một đặt chỗ hiện có.
+    Hàm này sẽ tính toán chi phí phát sinh và cập nhật tổng tiền.
+    """
+    conn = _get_db_connection()
+    try:
+        # Bắt đầu một transaction để đảm bảo tất cả các thao tác đều thành công hoặc không gì cả
+        conn.execute("BEGIN")
+
+        # Bước 1: Xác thực đặt chỗ
+        # Lấy thông tin cần thiết của booking và kiểm tra xem nó có thuộc về user_id này không
+        booking = conn.execute(
+            "SELECT id, status, ancillary_services_total, total_amount FROM bookings WHERE id = ? AND user_id = ?",
+            (booking_id, user_id)
+        ).fetchone()
+
+        if not booking:
+            raise ValueError("Không tìm thấy đặt chỗ hoặc bạn không có quyền thay đổi đặt chỗ này.")
+
+        # Chỉ cho phép thêm dịch vụ vào các đặt chỗ đã xác nhận hoặc đang chờ thanh toán
+        if booking['status'] not in ['confirmed', 'pending_payment', 'payment_received']:
+            raise ValueError(f"Không thể thêm dịch vụ cho đặt chỗ có trạng thái '{booking['status']}'.")
+
+        # Bước 2: Tính toán tổng chi phí các món ăn mới
+        new_items_cost = 0.0
+        items_to_insert = []
+
+        for item_data in selected_items:
+            menu_item_id = item_data.get('menu_item_id')
+            quantity = item_data.get('quantity')
+            
+            # Bỏ qua nếu dữ liệu không hợp lệ
+            if not menu_item_id or not isinstance(quantity, int) or quantity <= 0:
+                continue
+
+            # Lấy giá hiện tại của món ăn từ CSDL để đảm bảo tính đúng đắn
+            menu_item = conn.execute("SELECT price_vnd FROM menu_items WHERE id = ? AND is_available = 1", (menu_item_id,)).fetchone()
+            if not menu_item:
+                raise ValueError(f"Món ăn với ID {menu_item_id} không tồn tại hoặc đã hết.")
+
+            price_at_booking = menu_item['price_vnd']
+            new_items_cost += price_at_booking * quantity
+            
+            # Chuẩn bị dữ liệu để chèn vào bảng trung gian
+            items_to_insert.append((booking_id, menu_item_id, quantity, price_at_booking))
+
+        if not items_to_insert:
+            raise ValueError("Không có món ăn hợp lệ nào được chọn.")
+
+        # Bước 3: Chèn các món ăn đã chọn vào bảng booking_menu_items
+        conn.executemany(
+            "INSERT INTO booking_menu_items (booking_id, menu_item_id, quantity, price_at_booking) VALUES (?, ?, ?, ?)",
+            items_to_insert
+        )
+
+        # Bước 4: Cập nhật lại tổng tiền trong bảng bookings
+        new_ancillary_total = booking['ancillary_services_total'] + new_items_cost
+        new_total_amount = booking['total_amount'] + new_items_cost
+
+        # Cập nhật tổng tiền dịch vụ, tổng tiền cuối cùng và trạng thái của booking
+        conn.execute(
+            """
+            UPDATE bookings
+            SET ancillary_services_total = ?, total_amount = ?, status = 'changed', payment_status = 'pending', updated_at = datetime('now')
+            WHERE id = ?
+            """,
+            (new_ancillary_total, new_total_amount, booking_id)
+        )
+
+        # Bước 5: Hoàn tất transaction
+        conn.commit()
+        return (True, "Đã thêm các món ăn vào đặt chỗ. Vui lòng hoàn tất thanh toán.")
+
+    except (ValueError, sqlite3.Error) as e:
+        # Nếu có bất kỳ lỗi nào, hoàn tác tất cả các thay đổi trong transaction
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"Lỗi khi thêm suất ăn cho booking {booking_id}: {e}", exc_info=True)
+        # Trả về thông báo lỗi cụ thể
+        return (False, str(e))
+    finally:
+        if conn:
+            conn.close()
 
 def get_booking_for_checkin(pnr, last_name):
-    # TODO: Implement this function
-    print(f"Looking up booking for check-in with PNR {pnr} and last name {last_name}")
-    return None, "Chức năng chưa được triển khai."
+    """
+    Tra cứu thông tin đặt chỗ để làm thủ tục check-in.
+    Hàm này kiểm tra các điều kiện như PNR, tên, trạng thái đặt chỗ, và thời gian bay.
+    """
+    conn = _get_db_connection()
+    try:
+        # Bước 1: Tìm đặt chỗ bằng PNR (không thay đổi)
+        booking_query = """
+            SELECT b.id as booking_id, b.flight_id, b.status as booking_status, f.departure_time, f.status as flight_status
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            WHERE b.booking_code = ?
+        """
+        booking_info = conn.execute(booking_query, (pnr.upper(),)).fetchone()
+
+        if not booking_info:
+            return None, "Mã đặt chỗ không tồn tại."
+
+        # <<< SỬA LỖI Ở ĐÂY: SO SÁNH TÊN KHÔNG PHÂN BIỆT HOA/THƯỜNG >>>
+        # Bước 2: Kiểm tra họ của hành khách (sửa để không phân biệt chữ hoa/thường)
+        passenger_query = "SELECT 1 FROM passengers WHERE booking_id = ? AND LOWER(last_name) = LOWER(?)"
+        # Xóa khoảng trắng thừa và chuyển đổi sang chữ thường ở phía Python để đảm bảo
+        clean_last_name = last_name.strip()
+        passenger_exists = conn.execute(passenger_query, (booking_info['booking_id'], clean_last_name)).fetchone()
+        
+        if not passenger_exists:
+            return None, "Thông tin Họ của hành khách không chính xác cho Mã đặt chỗ này."
+        # <<< KẾT THÚC SỬA LỖI >>>
+
+        # Bước 3: Kiểm tra các điều kiện check-in (không thay đổi)
+        if booking_info['booking_status'] not in ['confirmed', 'paid', 'payment_received']:
+            return None, f"Đặt chỗ của bạn đang ở trạng thái '{booking_info['booking_status']}' và không thể làm thủ tục."
+
+        if booking_info['flight_status'] not in ['scheduled', 'on_time']:
+            return None, f"Chuyến bay đang ở trạng thái '{booking_info['flight_status']}' và không thể làm thủ tục."
+
+        departure_dt = datetime.fromisoformat(booking_info['departure_time'])
+        now_dt = datetime.now()
+        time_to_departure = departure_dt - now_dt
+
+        if not (timedelta(hours=1) <= time_to_departure <= timedelta(hours=24)):
+            return None, "Chưa đến thời gian làm thủ tục trực tuyến (chỉ mở trước 24 giờ và đóng trước 1 giờ so với giờ khởi hành)."
+
+        # Bước 4: Lấy thông tin chi tiết để hiển thị (không thay đổi)
+        details_query = """
+            SELECT
+                b.id as booking_id, f.flight_number,
+                dep.city as departure_city, arr.city as arrival_city,
+                f.departure_time
+            FROM bookings b
+            JOIN flights f ON b.flight_id = f.id
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            WHERE b.id = ?
+        """
+        booking_details = conn.execute(details_query, (booking_info['booking_id'],)).fetchone()
+        
+        passengers_details_query = "SELECT id, full_name, seat_assigned FROM passengers WHERE booking_id = ?"
+        passengers = conn.execute(passengers_details_query, (booking_info['booking_id'],)).fetchall()
+
+        result = dict(booking_details)
+        result['passengers'] = [dict(p) for p in passengers]
+
+        return result, "Tìm thấy đặt chỗ, sẵn sàng làm thủ tục."
+
+    except Exception as e:
+        current_app.logger.error(f"Lỗi khi tra cứu check-in cho PNR {pnr}: {e}", exc_info=True)
+        return None, "Đã xảy ra lỗi hệ thống. Vui lòng thử lại sau."
+    finally:
+        if conn:
+            conn.close()
+
 
 def process_checkin(booking_id, passenger_ids):
-    # TODO: Implement this function
-    print(f"Processing check-in for booking {booking_id} with passengers {passenger_ids}")
-    return False, "Chức năng chưa được triển khai.", None
+    """
+    Xử lý việc check-in cho các hành khách được chọn: gán số ghế và cập nhật trạng thái.
+    """
+    conn = _get_db_connection()
+    try:
+        conn.execute("BEGIN")
+
+        checked_in_details = []
+        for pax_id in passenger_ids:
+            # Kiểm tra xem hành khách có thuộc booking này không và chưa check-in
+            pax_info = conn.execute(
+                "SELECT id, full_name FROM passengers WHERE id = ? AND booking_id = ? AND seat_assigned IS NULL",
+                (pax_id, booking_id)
+            ).fetchone()
+
+            if not pax_info:
+                # Bỏ qua nếu hành khách không hợp lệ hoặc đã check-in
+                continue
+
+            # Logic gán ghế đơn giản: ngẫu nhiên
+            # Trong thực tế, logic này sẽ phức tạp hơn nhiều (sơ đồ ghế, loại ghế, v.v.)
+            seat_number = f"{random.randint(1, 30)}{random.choice(['A', 'B', 'C', 'D', 'E', 'F'])}"
+            
+            # Cập nhật số ghế cho hành khách
+            conn.execute("UPDATE passengers SET seat_assigned = ? WHERE id = ?", (seat_number, pax_id))
+            
+            checked_in_details.append({
+                "id": pax_info['id'],
+                "name": pax_info['full_name'],
+                "seat": seat_number
+            })
+
+        if not checked_in_details:
+             conn.rollback()
+             return False, "Không có hành khách hợp lệ nào được chọn để làm thủ tục.", None
+
+        # Cập nhật trạng thái check-in của cả booking
+        conn.execute(
+            "UPDATE bookings SET checkin_status = 'checked_in', updated_at = datetime('now') WHERE id = ?",
+            (booking_id,)
+        )
+
+        conn.commit()
+        return True, "Làm thủ tục thành công!", checked_in_details
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        current_app.logger.error(f"Lỗi khi xử lý check-in cho booking {booking_id}: {e}", exc_info=True)
+        return False, "Đã xảy ra lỗi hệ thống khi làm thủ tục.", None
+    finally:
+        if conn:
+            conn.close()
 
 def add_ancillary_service_to_booking(user_id, pnr, service_id):
     # TODO: Implement this function
