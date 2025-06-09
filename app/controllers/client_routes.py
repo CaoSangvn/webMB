@@ -225,9 +225,8 @@ def search_flights_api():
         if not origin_id or not destination_id:
             return jsonify({"success": False, "message": "Mã sân bay không hợp lệ."}), 400
 
-        # <<< LOGIC MỚI: XỬ LÝ CẢ CHUYẾN ĐI VÀ CHUYẾN VỀ >>>
-        # Tìm chuyến bay đi
-        departure_flights = flight_model.search_flights(
+        # Gọi hàm model mới cho chặng đi
+        departure_results = flight_model.search_flights(
             origin_id,
             destination_id,
             data['departure_date'],
@@ -235,21 +234,40 @@ def search_flights_api():
             data.get('seat_class', 'Phổ thông')
         )
         
-        results = {"departure_flights": departure_flights}
+        # Tạo cấu trúc kết quả
+        results = {"departure_results": departure_results}
 
-        # Nếu có ngày về (tức là tìm khứ hồi), thì tìm thêm chuyến bay về
+        # Nếu là khứ hồi, làm tương tự cho chặng về
         if data.get('return_date'):
-            return_flights = flight_model.search_flights(
-                destination_id,  # Đảo ngược điểm đi/đến
-                origin_id,
+            return_results = flight_model.search_flights(
+                destination_id,  # Đảo ngược
+                origin_id,       # Đảo ngược
                 data['return_date'],
                 int(data.get('passengers', 1)),
                 data.get('seat_class', 'Phổ thông')
             )
-            results["return_flights"] = return_flights
+            results["return_results"] = return_results
+
+        # Xử lý lại giá và định dạng ngày giờ ở đây để model đơn giản hơn
+        for key in ['departure_results', 'return_results']:
+            if key in results:
+                for flight_list_type in ['exact_flights', 'suggested_flights']:
+                    for flight in results[key][flight_list_type]:
+                        seat_class = data.get('seat_class', 'Phổ thông')
+                        if seat_class == "Thương gia":
+                            flight['price'] = flight['business_price']
+                        elif seat_class == "Hạng nhất":
+                            flight['price'] = flight['first_class_price']
+                        else:
+                            flight['price'] = flight['economy_price']
+                        
+                        dt_dep = datetime.fromisoformat(flight['departure_time'])
+                        dt_arr = datetime.fromisoformat(flight['arrival_time'])
+                        flight['departure_time_formatted'] = dt_dep.strftime('%H:%M, %d/%m/%Y')
+                        duration = dt_arr - dt_dep
+                        flight['duration_formatted'] = f"{int(duration.total_seconds() // 3600)} giờ {int((duration.total_seconds() % 3600) // 60)} phút"
 
         return jsonify({"success": True, "flights": results}), 200
-        # <<< KẾT THÚC LOGIC MỚI >>>
 
     except Exception as e:
         current_app.logger.error(f"Lỗi API tìm kiếm chuyến bay: {e}", exc_info=True)

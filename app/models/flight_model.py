@@ -25,69 +25,71 @@ def combine_datetime_str(date_str, time_str):
 def search_flights(origin_airport_id, destination_airport_id, departure_date_str, 
                    passengers=1, seat_class="Phổ thông"):
     """
-    Tìm kiếm các chuyến bay dựa trên điểm đi, điểm đến và ngày khởi hành.
-    Sử dụng phương pháp so sánh khoảng thời gian để đảm bảo độ chính xác.
+    Tìm kiếm chuyến bay một cách thông minh:
+    1. Tìm chính xác ngày khách hàng chọn.
+    2. Nếu không có, tự động tìm trong các ngày lân cận và trả về dưới dạng gợi ý.
     """
     conn = _get_db_connection()
-    flights_result = []
     try:
-        start_of_day = datetime.fromisoformat(departure_date_str + ' 00:00:00')
-        end_of_day = start_of_day + timedelta(days=1)
-
-        query = """
-            SELECT 
-                f.id, f.flight_number, f.departure_time, f.arrival_time,
-                f.economy_price, f.business_price, f.first_class_price,
-                f.available_seats,
-                dep.iata_code as origin_iata, dep.city as origin_city,
-                arr.iata_code as destination_iata, arr.city as destination_city
+        # --- 1. Tìm kiếm vào ngày chính xác ---
+        selected_date = datetime.fromisoformat(departure_date_str).date()
+        
+        query_exact = """
+            SELECT f.id, f.flight_number, f.departure_time, f.arrival_time,
+                   f.economy_price, f.business_price, f.first_class_price,
+                   f.available_seats, dep.iata_code as origin_iata, dep.city as origin_city,
+                   arr.iata_code as destination_iata, arr.city as destination_city
             FROM flights f
             JOIN airports dep ON f.departure_airport_id = dep.id
             JOIN airports arr ON f.arrival_airport_id = arr.id
-            WHERE f.departure_airport_id = ?
-              AND f.arrival_airport_id = ?
-              AND f.departure_time >= ?
-              AND f.departure_time < ?
-              AND f.available_seats >= ?
+            WHERE f.departure_airport_id = ? AND f.arrival_airport_id = ?
+              AND date(f.departure_time) = ? AND f.available_seats >= ?
               AND f.status = 'scheduled'
             ORDER BY f.departure_time ASC;
         """
-        params = (origin_airport_id, destination_airport_id, 
-                  start_of_day.strftime('%Y-%m-%d %H:%M:%S'), 
-                  end_of_day.strftime('%Y-%m-%d %H:%M:%S'), 
-                  passengers)
-        
-        cursor = conn.execute(query, params)
-        raw_flights = cursor.fetchall()
+        params_exact = (origin_airport_id, destination_airport_id, selected_date.strftime('%Y-%m-%d'), passengers)
+        exact_flights_raw = conn.execute(query_exact, params_exact).fetchall()
 
-        for row in raw_flights:
-            flight_dict = dict(row)
-            if seat_class == "Thương gia":
-                flight_dict['price'] = flight_dict['business_price']
-            elif seat_class == "Hạng nhất":
-                flight_dict['price'] = flight_dict['first_class_price']
-            else:
-                flight_dict['price'] = flight_dict['economy_price']
-            
-            try:
-                dt_dep = datetime.fromisoformat(flight_dict['departure_time'])
-                dt_arr = datetime.fromisoformat(flight_dict['arrival_time'])
-                flight_dict['departure_time_formatted'] = dt_dep.strftime('%H:%M, %d/%m/%Y')
-                flight_dict['arrival_time_formatted'] = dt_arr.strftime('%H:%M, %d/%m/%Y')
-                duration = dt_arr - dt_dep
-                hours = int(duration.total_seconds() // 3600)
-                minutes = int((duration.total_seconds() % 3600) // 60)
-                flight_dict['duration_formatted'] = f"{hours} giờ {minutes} phút"
-            except (ValueError, TypeError) as e:
-                current_app.logger.error(f"Error formatting date/time: {e}")
-                flight_dict['duration_formatted'] = "N/A"
-            
-            flights_result.append(flight_dict)
-            
-        return flights_result
+        # Nếu tìm thấy chuyến bay vào đúng ngày, trả về ngay
+        if exact_flights_raw:
+            return {
+                "exact_flights": [dict(row) for row in exact_flights_raw],
+                "suggested_flights": []
+            }
+
+        # --- 2. Nếu không có, tìm các ngày lân cận ---
+        radius_days = 3 # Tìm trong khoảng +/- 3 ngày
+        start_suggest_date = selected_date - timedelta(days=radius_days)
+        end_suggest_date = selected_date + timedelta(days=radius_days)
+
+        query_suggest = """
+            SELECT f.id, f.flight_number, f.departure_time, f.arrival_time,
+                   f.economy_price, f.business_price, f.first_class_price,
+                   f.available_seats, dep.iata_code as origin_iata, dep.city as origin_city,
+                   arr.iata_code as destination_iata, arr.city as destination_city
+            FROM flights f
+            JOIN airports dep ON f.departure_airport_id = dep.id
+            JOIN airports arr ON f.arrival_airport_id = arr.id
+            WHERE f.departure_airport_id = ? AND f.arrival_airport_id = ?
+              AND date(f.departure_time) BETWEEN ? AND ? AND f.available_seats >= ?
+              AND f.status = 'scheduled'
+            ORDER BY f.departure_time ASC;
+        """
+        params_suggest = (origin_airport_id, destination_airport_id, 
+                          start_suggest_date.strftime('%Y-%m-%d'), 
+                          end_suggest_date.strftime('%Y-%m-%d'), 
+                          passengers)
+        
+        suggested_flights_raw = conn.execute(query_suggest, params_suggest).fetchall()
+        
+        return {
+            "exact_flights": [],
+            "suggested_flights": [dict(row) for row in suggested_flights_raw]
+        }
+
     except Exception as e:
-        current_app.logger.error(f"Error searching flights: {e}", exc_info=True)
-        return []
+        current_app.logger.error(f"Error searching flights with suggestions: {e}", exc_info=True)
+        return {"exact_flights": [], "suggested_flights": []}
     finally:
         if conn:
             conn.close()

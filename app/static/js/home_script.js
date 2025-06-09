@@ -215,46 +215,71 @@ document.addEventListener('DOMContentLoaded', function() {
     const retContainer = document.getElementById('return-flight-options-container');
     const depResultsDiv = document.getElementById('departure-flights-results');
     const retResultsDiv = document.getElementById('return-flights-results');
-    
-    // Xóa kết quả cũ
-    depContainer.innerHTML = '';
-    retContainer.innerHTML = '';
-    retResultsDiv.style.display = 'none';
+    const flightResultsSection = document.getElementById('flight-results');
 
-    // Hàm phụ để render một danh sách chuyến bay
-    const renderList = (container, flights) => {
-        if (!flights || flights.length === 0) {
-            container.innerHTML = '<p style="color: white; text-align: center;">Không có chuyến bay nào phù hợp.</p>';
-            return;
+    // Hàm helper để render một danh sách chuyến bay
+    const renderList = (container, flightList, message = '') => {
+        let content = '';
+        if (message) {
+            content += `<p class="suggestion-message">${message}</p>`;
         }
-        flights.forEach(flight => {
-            const flightHTML = `
-                <div class="flight-option">
-                    <div class="flight-details">
-                        <h3>${flight.origin_iata} → ${flight.destination_iata}</h3>
-                        <p>Số hiệu: <strong>${flight.flight_number}</strong></p>
-                        <p>Khởi hành: ${flight.departure_time_formatted}</p>
-                        <p>Thời gian bay: ${flight.duration_formatted}</p>
-                    </div>
-                    <div class="flight-pricing" style="text-align: right;">
-                        <p style="font-size: 1.2rem; font-weight: bold; color: #ffeb3b;">${(flight.price || 0).toLocaleString('vi-VN')} VND</p>
-                        <button class="book-btn" data-flight-id="${flight.id}" data-seat-class="${seatClass}">Đặt vé</button>
-                    </div>
-                </div>`;
-            container.innerHTML += flightHTML;
-        });
+
+        if (!flightList || flightList.length === 0) {
+            // Chỉ hiển thị thông báo này nếu không có cả message gợi ý
+            if (!message) {
+                content += '<p class="no-flights-message">Không có chuyến bay nào phù hợp.</p>';
+            }
+        } else {
+            flightList.forEach(flight => {
+                const flightDate = new Date(flight.departure_time);
+                content += `
+                    <div class="flight-option">
+                        <div class="flight-details">
+                            <h3>${flight.origin_iata} → ${flight.destination_iata}</h3>
+                            <p style="color: #ffc107; font-weight: bold;">Ngày bay: ${flightDate.toLocaleDateString('vi-VN')}</p>
+                            <p>Khởi hành: ${flight.departure_time_formatted}</p>
+                            <p>Thời gian bay: ${flight.duration_formatted}</p>
+                        </div>
+                        <div class="flight-pricing">
+                            <p class="price-value">${(flight.price || 0).toLocaleString('vi-VN')} VND</p>
+                            <button class="book-btn" data-flight-id="${flight.id}" data-seat-class="${seatClass}">Đặt vé</button>
+                        </div>
+                    </div>`;
+            });
+        }
+        container.innerHTML = content;
     };
 
-    // Render chuyến đi
-    renderList(depContainer, flightsData.departure_flights);
+    // Xóa kết quả cũ
+    depResultsDiv.style.display = 'block';
+    retResultsDiv.style.display = 'none';
 
-    // Render chuyến về nếu có
-    if (flightsData.return_flights) {
-        retResultsDiv.style.display = 'block';
-        renderList(retContainer, flightsData.return_flights);
+    // Xử lý chặng đi
+    const depResults = flightsData.departure_results;
+    if (depResults) {
+        if (depResults.exact_flights.length > 0) {
+            renderList(depContainer, depResults.exact_flights);
+        } else if (depResults.suggested_flights.length > 0) {
+            renderList(depContainer, depResults.suggested_flights, "Không tìm thấy chuyến bay vào ngày bạn chọn. Dưới đây là các chuyến bay ở những ngày lân cận:");
+        } else {
+            renderList(depContainer, []); // Hiển thị "Không có chuyến bay"
+        }
     }
-    
-    document.getElementById("flight-results").style.display = 'block';
+
+    // Xử lý chặng về
+    const retResults = flightsData.return_results;
+    if (retResults) {
+        retResultsDiv.style.display = 'block';
+        if (retResults.exact_flights.length > 0) {
+            renderList(retContainer, retResults.exact_flights);
+        } else if (retResults.suggested_flights.length > 0) {
+            renderList(retContainer, retResults.suggested_flights, "Không có chuyến bay về vào ngày bạn chọn. Dưới đây là các chuyến bay lân cận:");
+        } else {
+            renderList(retContainer, []);
+        }
+    }
+
+    flightResultsSection.style.display = 'block';
     attachBookButtonListeners();
 }
 
