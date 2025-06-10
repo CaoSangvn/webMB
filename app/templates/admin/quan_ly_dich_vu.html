@@ -49,7 +49,7 @@
             <div class="page-content-area">
                 <div class="page-header">
                     <button id="addServiceBtn" class="btn btn-primary"><i class="fas fa-plus"></i> Thêm dịch vụ mới</button>
-                </div>
+                    </div>
 
                 <div class="table-container">
                     <table id="servicesTable">
@@ -64,14 +64,15 @@
                                 <th>Hành động</th>
                             </tr>
                         </thead>
-                        <tbody id="servicesTableBody"></tbody>
+                        <tbody id="servicesTableBody">
+                            </tbody>
                     </table>
                 </div>
             </div>
         </main>
     </div>
 
-    <div id="serviceFormModal" class="admin-modal">
+    <div id="serviceFormModal" class="admin-modal" style="display: none;">
         <div class="modal-content large">
             <span class="modal-close-btn" id="closeServiceModalBtn">×</span>
             <h3 id="serviceModalTitle">Thêm dịch vụ mới</h3>
