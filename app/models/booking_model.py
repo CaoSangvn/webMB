@@ -540,18 +540,18 @@ def get_booking_for_checkin(pnr, last_name):
                 "message": f"Đặt chỗ của bạn đang ở trạng thái '{status_text}' và không thể làm thủ tục.",
                 "reason_code": "INVALID_STATUS"
             }
-
+        '''
         departure_dt = datetime.fromisoformat(booking_info['departure_time'])
         now_dt = datetime.now()
         time_to_departure = departure_dt - now_dt
-
+        
         if not (timedelta(hours=1) <= time_to_departure <= timedelta(hours=24)):
             return {
                 "success": False,
                 "message": "Chưa đến thời gian làm thủ tục trực tuyến (chỉ mở trước 24 giờ và đóng trước 1 giờ so với giờ khởi hành).",
                 "reason_code": "INVALID_TIME"
             }
-
+        '''
         # Bước 4: Nếu mọi thứ hợp lệ, lấy thông tin chi tiết
         details_query = """
             SELECT b.id as booking_id, f.flight_number, dep.city as departure_city, arr.city as arrival_city, f.departure_time

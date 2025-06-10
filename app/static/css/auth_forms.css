@@ -2,7 +2,7 @@
 body.auth-page-vj {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* Font hệ thống hiện đại */
-    background-color: rgb(165, 130, 66);; /* Màu nền xám rất nhạt, sạch sẽ */
+    background-image: url(/static/images/bia_1.jpg);
     display: flex;
     justify-content: center;
     align-items: center;   

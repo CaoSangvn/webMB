@@ -6,6 +6,7 @@
   <title>Đặt vé máy bay - SangAir</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='css/common.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/home.css') }}">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" />
 </head>
 <body>
   <header>
@@ -40,13 +41,20 @@
   </header>
   <div class="main-background-top">
     <main class="container main-container">
-      <section class="notice-section">
-        <h1 id="notice-main-title">THÔNG BÁO</h1>
-        <div id="dynamic-notice-items-container">
-          <p>Chào mừng bạn đến với SangAir! Kiểm tra các ưu đãi mới nhất trong mục "Ưu đãi đặc biệt".</p>
-          <p>Cập nhật lịch bay mùa hè từ 15/5 đến 30/8/2025.</p>
-        </div>
-      </section>
+      <div class="left-column">
+          <section class="notice-section">
+              <h1 id="notice-main-title">THÔNG BÁO</h1>
+              <div id="dynamic-notice-items-container">
+                  <p>Chào mừng bạn đến với SangAir! Kiểm tra các ưu đãi mới nhất trong mục "Ưu đãi đặc biệt".</p>
+                  <p>Cập nhật lịch bay mùa hè từ 15/5 đến 30/8/2025.</p>
+              </div>
+          </section>
+
+          <div class="feature-highlights">
+              <h3 class="inspirational-line">Viết nên câu chuyện của riêng bạn</h3>
+          </div>
+      </div>
+      
       <section class="booking-section">
         <div class="tabs">
           <button type="button" class="tab active" data-tab="flight">Đặt vé</button>
@@ -190,14 +198,52 @@
     </main>
   </div>
   <div class="main-background-bottom">
-    <div class="banner-container">
-      <div class="title">
-        <span class="small-text">Cùng</span>
-        <span class="sangair">SangAir</span>
+    <section class="stats-banner-block">
+      <div class="container">
+        <div class="stats-banner-content">
+
+          <div class="stats-column left">
+            <div class="service-circle-item">
+              <div class="service-circle">
+                <i class="fas fa-plane-departure"></i>
+              </div>
+              <span class="service-description">Mạng bay rộng khắp</span>
+            </div>
+            <div class="service-circle-item">
+              <div class="service-circle">
+                <i class="fas fa-hand-holding-usd"></i>
+              </div>
+              <span class="service-description">Giá vé tốt nhất</span>
+            </div>
+          </div>
+
+          <div class="stats-banner-slogan">
+            <div class="slogan-text">
+              <span class="slogan-line1">Cùng</span>
+              <span class="slogan-brand">SangAir</span>
+            </div>
+            <div class="slogan-line2">TRẢI NGHIỆM BAY ĐỈNH CAO</div>
+            <div class="slogan-path"></div>
+          </div>
+
+          <div class="stats-column right">
+            <div class="service-circle-item">
+              <div class="service-circle">
+                <i class="fas fa-shield-alt"></i>
+              </div>
+              <span class="service-description">An toàn là ưu tiên</span>
+            </div>
+            <div class="service-circle-item">
+              <div class="service-circle">
+                <i class="fas fa-concierge-bell"></i>
+              </div>
+              <span class="service-description">Dịch vụ chu đáo</span>
+            </div>
+          </div>
+          
+        </div>
       </div>
-      <div class="subtitle">TRẢI NGHIỆM BAY ĐỈNH CAO</div>
-      <div class="flight-path"></div>
-    </div>
+    </section>
     <section class="promo-section container">
       <h2 class="section-title">ƯU ĐÃI ĐẶC BIỆT</h2>
       <div class="promo-list">

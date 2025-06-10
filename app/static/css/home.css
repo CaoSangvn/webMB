@@ -385,10 +385,13 @@
 .promo-card {
   background: #fff8eb;
   border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(255, 204, 0, 0.2);
+  /* Tăng cường box-shadow để nổi bật hơn */
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   padding: 15px;
   text-align: center;
   max-width: 300px;
+  /* Thêm transition để hiệu ứng mượt mà */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 .promo-card img {
   width: 100%;
@@ -432,15 +435,18 @@
   display: flex;
   align-items: flex-start;
   gap: 20px;
-  width: 50vw; /* Chiếm 50% màn hình */
+  width: 50vw;
   padding: 20px;
   background: #fff;
   border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  /* Tăng cường box-shadow */
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
   margin-bottom: 10px;
   box-sizing: border-box;
   min-height: 130px;
   overflow: hidden;
+  /* Thêm transition để hiệu ứng mượt mà */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .news-vertical-item img {
@@ -633,16 +639,20 @@
   overflow: hidden;
   border-radius: 12px;
   cursor: pointer;
-  transition: transform 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  height: 400px; /* 📌 Ảnh cao hơn đáng kể */
+  height: 400px;
   width: 340px;
+  /* Tăng cường box-shadow mặc định */
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.36);
+  /* Giữ nguyên transition đã có */
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .destination:hover {
-  transform: scale(1.03);
-  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.15);
+  /* Giữ nguyên hiệu ứng phóng to và làm bóng đổ đậm hơn nữa */
+  transform: scale(1.05);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.618);
 }
+
 
 .destination img {
   width: 100%;
@@ -780,44 +790,204 @@
 }
 
 .main-background-top {
-  background-image: url(/static//images/bia_1.jpg);
+  background-image: url(/static//images/may_bay.jpg);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  padding-bottom: 80px;
+  padding-bottom: 160px;
 }
 
 .main-background-bottom {
-  background-image: url(/static/images/may.jpg);
+  background-color: #f9f7f3;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  padding-top: 60px;
-  padding-bottom: 60px;
 }
 
+.main-background-top {
+  position: relative;
+  overflow: hidden;
+}
 
 .main-background-top::after {
-content: '';
-position: absolute;
-top: 50%; /* Đặt ở giữa
-left: 0;
-right: 0;
-height: 50px; / Điều chỉnh độ cao vùng chuyển tiếp /
-background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.1) 50%, rgba(0,0,0,0) 100%); / Tạo gradient từ trong suốt đến hơi tối rồi lại trong suốt /
-pointer-events: none; / Cho phép các tương tác bên dưới */
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 260px; /* Điều chỉnh độ cao vùng tối */
+  width: 100%;
+  background: linear-gradient(to top, rgba(1, 48, 135, 0.659), transparent);
+  pointer-events: none;
+  z-index: 2;
 }
 
+/* home.css - Cập nhật theo yêu cầu mới */
 
+/* Tăng khoảng cách giữa các mục trong cột trái */
+.left-column {
+    flex: 0 0 340px; 
+    display: flex;
+    flex-direction: column;
+    gap: 170px; /* THAY ĐỔI: Tăng khoảng cách để đẩy chữ xuống (bạn có thể điều chỉnh giá trị này) */
+}
 
-.main-background-bottom::before {
-  content: "";
+/* Container cho dòng chữ nổi bật */
+.feature-highlights {
+    /* Bỏ margin-top vì đã có gap ở trên */
+    text-align: center;
+}
+
+/* Định dạng cho dòng chữ truyền cảm hứng */
+.inspirational-line {
+    color: #ffffff;
+    font-size: 2.2rem; /* THAY ĐỔI: Tăng kích thước chữ cho to và rõ hơn */
+    font-weight: 600;
+    font-style: italic;
+    line-height: 1.5;
+    text-shadow: 2px 2px 5px rgba(0, 0, 0, 0.92);
+}
+
+/* ====================================================== */
+/* ============ KHỐI BANNER (ICON TRÒN 2 BÊN) ============ */
+/* ====================================================== */
+
+/* 1. Container chính của toàn khối (Giữ nguyên) */
+/* 1. Container chính với ảnh nền cabin máy bay */
+.stats-banner-block {
+  position: relative; /* Cần thiết cho lớp phủ */
+  padding: 80px 0;
+  color: #ffffff; /* Đổi màu chữ mặc định thành trắng */
+  isolation: isolate; 
+  border-top: 2px solid rgba(255, 255, 255, 0.129);
+  border-bottom: 2px solid rgba(255, 255, 255, 0.129);
+}
+
+/* Lớp phủ và ảnh nền */
+.stats-banner-block::before {
+  content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 160px;
-  background: linear-gradient(to top, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 60%, #fff 100%);
-  z-index: 1;
+  bottom: 0;
+  
+  /* THAY ĐỔI 1: Ảnh nền mới */
+  background-image: url(/static/images/khoang_may_bay.jpg); /* Sử dụng ảnh cabin máy bay */
+  background-size: cover;
+  background-position: center;
+
+  /* THAY ĐỔI 2: Làm mờ và tối ảnh nền */
+  filter: blur(3px) brightness(0.7); /* Làm mờ và giảm độ sáng nền */
+  z-index: -1; /* Đưa lớp nền này xuống dưới cùng */
 }
 
+
+/* 2. Lớp lót để sắp xếp nội dung (Giữ nguyên) */
+.stats-banner-content {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 60px;
+}
+
+/* 3. Cột chứa các icon (Giữ nguyên) */
+.stats-column {
+  display: flex;
+  gap: 45px;
+  flex: 1;
+  justify-content: center;
+}
+
+/* 4. Slogan ở giữa */
+.stats-banner-slogan {
+  text-align: center;
+  flex: 1.5;
+  color: #ffffff; /* THAY ĐỔI: Chuyển toàn bộ slogan sang màu trắng */
+}
+
+/* (Định dạng slogan chi tiết) */
+.slogan-text { display: inline-block; font-style: italic; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+.slogan-line1 { font-size: 1.8rem; font-weight: 600; margin-right: 8px; }
+.slogan-brand { font-family: 'Arial Black', sans-serif; font-size: 2.2rem; font-weight: 900; }
+.slogan-line2 { font-size: 1.6rem; font-weight: 700; letter-spacing: 1px; text-shadow: 1px 1px 3px rgba(0,0,0,0.5); }
+.slogan-path { width: 150px; height: 40px; border-bottom: 2px dashed #ffffff; /* Đổi đường kẻ thành màu trắng */ border-radius: 0 0 75px 75px; margin: 5px auto 0; }
+
+
+/* 5. Định dạng mới cho các mục icon tròn */
+.service-circle-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.service-circle {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1); /* Giảm độ trong suốt của nền tròn */
+  border: 2px solid #ffffff; /* THAY ĐỔI: Viền trắng rõ nét hơn */
+  backdrop-filter: blur(5px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+.service-circle:hover {
+    background: rgba(255, 255, 255, 0.2);
+    transform: scale(1.05);
+}
+
+.service-circle i {
+  font-size: 2.8rem;
+  color: #ffffff; /* THAY ĐỔI: Icon màu trắng */
+  text-shadow: 1px 1px 3px rgba(0,0,0,0.4);
+}
+
+.service-description {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #ffffff; /* THAY ĐỔI: Mô tả màu trắng */
+  text-align: center;
+}
+
+/* 6. Responsive (Giữ nguyên) */
+@media (max-width: 992px) {
+  .stats-banner-content { flex-direction: column; gap: 40px; }
+  .stats-banner-slogan { order: -1; }
+  .stats-column { flex-direction: row; justify-content: space-around; width: 100%; }
+}
+
+/* home.css - Cập nhật kiểu dáng mới cho tiêu đề mục */
+
+.section-title {
+  display: flex;
+  align-items: center;
+  text-align: center;
+  margin: 60px 0 40px 0;
+
+  /* Thay đổi về chữ */
+  color: #3a3a3a; /* Chuyển sang màu xám đậm sang trọng */
+  font-size: 1.6rem; /* Điều chỉnh lại kích thước một chút */
+  font-weight: 600;
+  text-transform: uppercase; /* VIẾT HOA TOÀN BỘ */
+  letter-spacing: 2px;     /* Tăng khoảng cách giữa các ký tự */
+}
+
+/* Thay đổi về đường kẻ */
+.section-title::before,
+.section-title::after {
+  content: '';
+  flex-grow: 1;
+  height: 1px;
+  background-color: #dbdbdb; /* Chuyển sang màu xám nhạt hơn, tinh tế hơn */
+}
+
+/* Giữ nguyên khoảng cách */
+.section-title::before {
+  margin-right: 25px; 
+}
+
+.section-title::after {
+  margin-left: 25px;
+}
