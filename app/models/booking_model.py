@@ -265,12 +265,17 @@ def create_booking(user_id, flight_id, passengers_data, seat_class_booked, num_a
     finally:
         if conn: conn.close()
 
+from datetime import datetime # Đảm bảo bạn đã import datetime ở đầu tệp
+
 def get_bookings_by_user_id(user_id):
-    """Lấy tất cả đặt chỗ của một người dùng."""
+    """
+    Lấy danh sách các đặt chỗ của một người dùng cụ thể, bao gồm thông tin chi tiết
+    và các trường đã được định dạng cho việc hiển thị.
+    """
     conn = _get_db_connection()
     try:
-        # <<< SỬA LỖI Ở ĐÂY: Query ban đầu sẽ không lấy chi tiết hành khách ngay lập tức >>>
-        # Query vẫn giữ nguyên để lấy danh sách các booking chính
+        # Câu truy vấn SQL này đã được sửa ở các bước trước để dùng booking_code
+        # và lấy các thông tin cần thiết.
         query = """
             SELECT 
                 b.*, b.id as booking_id, b.status as booking_status, b.booking_code as pnr,
@@ -286,26 +291,56 @@ def get_bookings_by_user_id(user_id):
         """
         bookings_raw = conn.execute(query, (user_id,)).fetchall()
         
-        # <<< SỬA LỖI Ở ĐÂY: Lặp qua từng booking để lấy và đính kèm danh sách hành khách >>>
-        bookings_with_passengers = []
+        bookings_list = []
         for booking_row in bookings_raw:
             booking_dict = dict(booking_row)
+
+            # <<< PHẦN LOGIC SỬA LỖI HIỂN THỊ N/A ĐƯỢC THÊM VÀO ĐÂY >>>
+            departure_time_str = booking_dict.get('departure_time')
+            arrival_time_str = booking_dict.get('arrival_time')
             
-            # Lấy danh sách hành khách cho booking hiện tại
+            duration_formatted = 'N/A'
+            departure_datetime_formatted = 'N/A'
+            arrival_datetime_formatted = 'N/A'
+
+            if departure_time_str and arrival_time_str:
+                try:
+                    departure_dt = datetime.strptime(departure_time_str, '%Y-%m-%d %H:%M:%S')
+                    arrival_dt = datetime.strptime(arrival_time_str, '%Y-%m-%d %H:%M:%S')
+
+                    # Tính toán thời gian bay
+                    duration = arrival_dt - departure_dt
+                    total_minutes = int(duration.total_seconds() / 60)
+                    hours = total_minutes // 60
+                    minutes = total_minutes % 60
+                    if hours > 0:
+                        duration_formatted = f"{hours} giờ {minutes} phút"
+                    else:
+                        duration_formatted = f"{minutes} phút"
+
+                    # Định dạng ngày giờ hiển thị
+                    departure_datetime_formatted = departure_dt.strftime('%H:%M, %d/%m/%Y')
+                    arrival_datetime_formatted = arrival_dt.strftime('%H:%M, %d/%m/%Y')
+
+                except (ValueError, TypeError):
+                    # Giữ giá trị 'N/A' nếu có lỗi parsing
+                    pass
+            
+            booking_dict['duration_formatted'] = duration_formatted
+            booking_dict['departure_datetime_formatted'] = departure_datetime_formatted
+            booking_dict['arrival_datetime_formatted'] = arrival_datetime_formatted
+            # <<< KẾT THÚC PHẦN LOGIC SỬA LỖI >>>
+
+            # Lấy thông tin hành khách (tùy chọn, giữ nguyên nếu có)
             passengers_raw = conn.execute(
                 "SELECT * FROM passengers WHERE booking_id = ?", 
                 (booking_dict['booking_id'],)
             ).fetchall()
-            
-            # Đính kèm danh sách hành khách vào dictionary của booking
             booking_dict['passengers'] = [dict(p) for p in passengers_raw]
+
+            bookings_list.append(booking_dict)
             
-            bookings_with_passengers.append(booking_dict)
-            
-        return bookings_with_passengers
-    except Exception as e:
-        current_app.logger.error(f"Lỗi khi lấy booking của user {user_id}: {e}", exc_info=True)
-        return []
+        return bookings_list
     finally:
         if conn:
             conn.close()
@@ -868,66 +903,64 @@ def delete_booking_by_admin(booking_id):
         raise # Ném lỗi để controller bắt
     finally:
         if conn: conn.close()
-def add_single_menu_item_to_booking(user_id, pnr, menu_item_id, quantity=1):
-    """
-    Thêm một món ăn duy nhất vào một đặt chỗ hiện có dựa trên PNR.
-    """
+def add_menu_items_to_booking(booking_id, user_id, items):
+    """Thêm nhiều món ăn vào một đặt chỗ hiện có. Đã thêm logic kiểm tra check-in."""
     conn = _get_db_connection()
     try:
         conn.execute("BEGIN")
-
-        # Bước 1: Xác thực đặt chỗ bằng PNR và user_id
-        booking = conn.execute(
-            "SELECT id, status, ancillary_services_total, total_amount FROM bookings WHERE booking_code = ? AND user_id = ?",
-            (pnr, user_id)
-        ).fetchone()
+        # Lấy thông tin đặt chỗ hiện tại, bao gồm cả trạng thái check-in
+        booking_cursor = conn.execute("""
+            SELECT b.id, b.status, b.total_amount, b.ancillary_services_total, b.checkin_status
+            FROM bookings b
+            WHERE b.id = ? AND b.user_id = ?
+        """, (booking_id, user_id))
+        booking = booking_cursor.fetchone()
 
         if not booking:
-            raise ValueError("Không tìm thấy Mã đặt chỗ hoặc bạn không có quyền thay đổi.")
+            raise ValueError("Không tìm thấy đặt chỗ hoặc bạn không có quyền.")
+
+        # SỬA LỖI: Thêm điều kiện kiểm tra trạng thái check-in
+        if booking['checkin_status'] != 'not_checked_in':
+            raise ValueError("Không thể thêm dịch vụ vì đặt chỗ đã được làm thủ tục check-in.")
 
         if booking['status'] not in ['confirmed', 'payment_received', 'changed']:
             raise ValueError(f"Không thể thêm dịch vụ cho đặt chỗ có trạng thái '{booking['status']}'.")
+        
+        total_additional_cost = 0
+        
+        for item in items:
+            menu_item_id = item['menu_item_id']
+            quantity = item['quantity']
+            
+            menu_item_info = conn.execute("SELECT price_vnd FROM menu_items WHERE id = ?", (menu_item_id,)).fetchone()
+            if not menu_item_info:
+                raise ValueError(f"Món ăn với ID {menu_item_id} không tồn tại.")
+            
+            price_at_booking = menu_item_info['price_vnd']
+            item_cost = price_at_booking * quantity
+            total_additional_cost += item_cost
+            
+            conn.execute(
+                "INSERT INTO booking_menu_items (booking_id, menu_item_id, quantity, price_at_booking) VALUES (?, ?, ?, ?)",
+                (booking_id, menu_item_id, quantity, price_at_booking)
+            )
 
-        # Bước 2: Lấy thông tin và giá của món ăn
-        menu_item = conn.execute(
-            "SELECT price_vnd FROM menu_items WHERE id = ? AND is_available = 1",
-            (menu_item_id,)
-        ).fetchone()
-
-        if not menu_item:
-            raise ValueError(f"Món ăn không tồn tại hoặc không khả dụng.")
-
-        # Bước 3: Tính toán chi phí và chèn vào bảng trung gian
-        price_at_booking = menu_item['price_vnd']
-        item_cost = price_at_booking * quantity
-        booking_id = booking['id']
-
+        new_ancillary_total = (booking['ancillary_services_total'] or 0) + total_additional_cost
+        new_total_amount = (booking['total_amount'] or 0) + total_additional_cost
+        
         conn.execute(
-            "INSERT INTO booking_menu_items (booking_id, menu_item_id, quantity, price_at_booking) VALUES (?, ?, ?, ?)",
-            (booking_id, menu_item_id, quantity, price_at_booking)
-        )
-
-        # Bước 4: Cập nhật tổng tiền trong bảng bookings
-        new_ancillary_total = booking['ancillary_services_total'] + item_cost
-        new_total_amount = booking['total_amount'] + item_cost
-
-        conn.execute(
-            """
-            UPDATE bookings
-            SET ancillary_services_total = ?, total_amount = ?, status = 'changed', payment_status = 'pending', updated_at = datetime('now')
-            WHERE id = ?
-            """,
+            "UPDATE bookings SET ancillary_services_total = ?, total_amount = ?, status = 'changed', updated_at = datetime('now') WHERE id = ?",
             (new_ancillary_total, new_total_amount, booking_id)
         )
         
         conn.commit()
-        return {"success": True, "booking_id": booking_id, "message": "Đã thêm món ăn vào đặt chỗ."}
+        return {"success": True, "message": "Các dịch vụ đã được thêm thành công."}
 
     except (ValueError, sqlite3.Error) as e:
         if conn:
             conn.rollback()
-        current_app.logger.error(f"Lỗi khi thêm món ăn vào PNR {pnr}: {e}", exc_info=True)
-        return {"success": False, "message": str(e)}
+        current_app.logger.error(f"Lỗi khi thêm dịch vụ vào booking {booking_id}: {e}", exc_info=True)
+        raise e # Ném lại lỗi để route có thể bắt và trả về JSON
     finally:
         if conn:
             conn.close()

@@ -821,3 +821,62 @@ pointer-events: none; / Cho phép các tương tác bên dưới */
   z-index: 1;
 }
 
+/* ========================================= */
+/* === CSS CHO PASSENGER INFO MODAL === */
+/* ========================================= */
+
+#passenger-forms-container {
+    margin-top: 15px;
+    max-height: 50vh; /* Giới hạn chiều cao nếu có nhiều hành khách */
+    overflow-y: auto; /* Cho phép cuộn nếu quá dài */
+    padding-right: 10px; /* Thêm khoảng trống nhỏ cho thanh cuộn */
+}
+
+.passenger-form-group {
+    background-color: #f9f9f9;
+    border: 1px solid #e0e0e0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 15px;
+}
+
+.passenger-form-group h4 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #333;
+    font-size: 1rem;
+    font-weight: 600;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 8px;
+}
+
+.passenger-form-group .form-row {
+    margin-bottom: 10px;
+}
+
+.passenger-form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: #444;
+}
+
+.passenger-form-group input[type="text"],
+.passenger-form-group input[type="date"],
+.passenger-form-group select {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    font-size: 0.95rem;
+    box-sizing: border-box; /* Quan trọng để padding không làm vỡ layout */
+}
+
+/* Thêm hiệu ứng khi focus vào ô nhập liệu */
+.passenger-form-group input:focus,
+.passenger-form-group select:focus {
+    border-color: #ffbc38;
+    box-shadow: 0 0 0 2px rgba(255, 188, 56, 0.2);
+    outline: none;
+}

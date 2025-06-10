@@ -2,7 +2,7 @@
 DROP TABLE IF EXISTS booking_menu_items;
 DROP TABLE IF EXISTS booking_ancillary_services;
 DROP TABLE IF EXISTS passengers;
-DROP TABLE IF EXISTS bookings; -- Sẽ được tạo lại với cấu trúc mới
+DROP TABLE IF EXISTS bookings;
 DROP TABLE IF EXISTS promotions;
 DROP TABLE IF EXISTS flights;
 DROP TABLE IF EXISTS airports;
@@ -11,10 +11,9 @@ DROP TABLE IF EXISTS ancillary_services;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS sessions;
 DROP TABLE IF EXISTS users;
+DROP TABLE IF EXISTS settings;
 
--- Bảng Users (Giữ nguyên)
--- Trong schema.sql
-DROP TABLE IF EXISTS users; -- Xóa bảng cũ nếu có trước khi tạo lại
+-- Bảng Users
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     full_name TEXT NOT NULL,
@@ -22,12 +21,12 @@ CREATE TABLE users (
     phone_number TEXT UNIQUE,
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'client' CHECK(role IN ('client', 'admin')),
-    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'pending', 'locked')), -- Trạng thái tài khoản
+    status TEXT DEFAULT 'active' CHECK(status IN ('active', 'pending', 'locked')),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
 );
 
--- Bảng Sessions (Giữ nguyên)
+-- Bảng Sessions
 CREATE TABLE sessions (
     session_id TEXT PRIMARY KEY,
     user_id INTEGER NOT NULL,
@@ -36,7 +35,7 @@ CREATE TABLE sessions (
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
 );
 
--- Bảng Airports (Giữ nguyên)
+-- Bảng Airports
 CREATE TABLE airports (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
@@ -45,12 +44,7 @@ CREATE TABLE airports (
     iata_code TEXT UNIQUE NOT NULL
 );
 
--- Bảng Flights (Giữ nguyên như lần cập nhật trước)
--- Trong schema.sql
-
--- ... (các lệnh DROP TABLE và CREATE TABLE khác giữ nguyên) ...
-
-DROP TABLE IF EXISTS flights; -- Đảm bảo xóa bảng cũ trước khi tạo lại với schema mới
+-- Bảng Flights
 CREATE TABLE flights (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     flight_number TEXT NOT NULL,
@@ -70,7 +64,7 @@ CREATE TABLE flights (
     FOREIGN KEY (arrival_airport_id) REFERENCES airports (id) ON DELETE RESTRICT
 );
 
--- Bảng Promotions (Giữ nguyên)
+-- Bảng Promotions
 CREATE TABLE promotions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     promo_code TEXT UNIQUE NOT NULL,
@@ -87,22 +81,22 @@ CREATE TABLE promotions (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng Bookings: Lưu thông tin các đặt chỗ (ĐÃ CẬP NHẬT - BỎ taxes_fees)
+-- Bảng Bookings
 CREATE TABLE bookings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER,
     flight_id INTEGER NOT NULL,
-    booking_code TEXT UNIQUE NOT NULL,
+    booking_code TEXT UNIQUE NOT NULL, -- Giữ lại cột này là đủ
     booking_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     num_adults INTEGER NOT NULL DEFAULT 1,
     num_children INTEGER DEFAULT 0,
     num_infants INTEGER DEFAULT 0,
     seat_class_booked TEXT NOT NULL,
-    base_fare REAL NOT NULL, -- Giá vé gốc trước dịch vụ, giảm giá
-    ancillary_services_total REAL DEFAULT 0, -- Tổng tiền các dịch vụ cộng thêm
+    base_fare REAL NOT NULL,
+    ancillary_services_total REAL DEFAULT 0,
     promotion_id INTEGER,
-    discount_applied REAL DEFAULT 0, -- Số tiền đã được giảm
-    total_amount REAL NOT NULL, -- Tổng tiền cuối cùng phải trả (base_fare + ancillary_services_total - discount_applied)
+    discount_applied REAL DEFAULT 0,
+    total_amount REAL NOT NULL,
     payment_method TEXT,
     payment_status TEXT NOT NULL DEFAULT 'pending' CHECK(payment_status IN ('pending', 'paid', 'failed', 'refunded')),
     status TEXT NOT NULL DEFAULT 'pending_payment' CHECK(status IN ('pending_payment', 'confirmed', 'cancelled_by_user', 'cancelled_by_airline', 'changed', 'completed','payment_received','no_show')),
@@ -111,11 +105,11 @@ CREATE TABLE bookings (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE SET NULL,
-    FOREIGN KEY (flight_id) REFERENCES flights (id) ON DELETE CASCADE,
+    FOREIGN KEY (flight_id) REFERENCES flights (id) ON DELETE RESTRICT,
     FOREIGN KEY (promotion_id) REFERENCES promotions (id) ON DELETE SET NULL
 );
 
--- Bảng Passengers (Giữ nguyên)
+-- Bảng Passengers
 CREATE TABLE passengers (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     booking_id INTEGER NOT NULL,
@@ -133,7 +127,7 @@ CREATE TABLE passengers (
     FOREIGN KEY (booking_id) REFERENCES bookings (id) ON DELETE CASCADE
 );
 
--- Bảng Notifications (Giữ nguyên)
+-- Bảng Notifications
 CREATE TABLE notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -147,14 +141,14 @@ CREATE TABLE notifications (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng lưu các cài đặt chung của trang web
+-- Bảng Settings
 CREATE TABLE settings (
     setting_key TEXT PRIMARY KEY NOT NULL,
     setting_value TEXT,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng MenuItems (Giữ nguyên)
+-- Bảng MenuItems
 CREATE TABLE menu_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -169,7 +163,7 @@ CREATE TABLE menu_items (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng AncillaryServices (Giữ nguyên)
+-- Bảng AncillaryServices
 CREATE TABLE ancillary_services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -183,7 +177,7 @@ CREATE TABLE ancillary_services (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Bảng Booking_AncillaryServices (Giữ nguyên)
+-- Bảng Booking_AncillaryServices
 CREATE TABLE booking_ancillary_services (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     booking_id INTEGER NOT NULL,
@@ -197,7 +191,7 @@ CREATE TABLE booking_ancillary_services (
     FOREIGN KEY (passenger_id) REFERENCES passengers (id) ON DELETE CASCADE
 );
 
--- Bảng Booking_MenuItems (Giữ nguyên)
+-- Bảng Booking_MenuItems
 CREATE TABLE booking_menu_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     booking_id INTEGER NOT NULL,
@@ -211,7 +205,7 @@ CREATE TABLE booking_menu_items (
     FOREIGN KEY (menu_item_id) REFERENCES menu_items (id) ON DELETE RESTRICT
 );
 
--- Tạo Indexes (Giữ nguyên)
+-- Tạo Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users (email);
 CREATE INDEX IF NOT EXISTS idx_airports_iata_code ON airports (iata_code);
 CREATE INDEX IF NOT EXISTS idx_flights_departure_airport_id ON flights (departure_airport_id);
@@ -299,43 +293,13 @@ INSERT INTO flights (flight_number, departure_airport_id, arrival_airport_id, de
 -- DỮ LIỆU MẪU BỔ SUNG ĐỂ TEST
 -- =================================================================
 
--- Thêm 2 người dùng client mới
-INSERT INTO users (id, full_name, email, password_hash, role) VALUES
-(2, 'Nguyễn Văn An', 'nguyenvana@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client'),
-(3, 'Trần Thị Bình', 'tranthib@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client');
+    -- Thêm 2 người dùng client mới
+    INSERT INTO users (id, full_name, email, password_hash, role) VALUES
+    (2, 'Nguyễn Văn An', 'nguyenvana@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client'),
+    (3, 'Trần Thị Bình', 'tranthib@example.com', 'scrypt:32768:8:1$DL1seCgmwTgBtSDU$7c021d76e34edf6145efb1eaf98550a96863cad6d7a8bbb965664097a240d21f5b0715c290d1cc905aaccffde51225182dcccb892388a4eeae1ef17024127b23', 'client');
 
--- Thêm một chuyến bay trong quá khứ để test báo cáo
-INSERT INTO flights (flight_number, departure_airport_id, arrival_airport_id, departure_time, arrival_time, economy_price, business_price, first_class_price, total_seats, available_seats, status) VALUES
-('SA20', (SELECT id FROM airports WHERE iata_code = 'SGN'), (SELECT id FROM airports WHERE iata_code = 'DAD'), datetime('now', '-10 days'), datetime('now', '-10 days', '+1 hours 20 minutes'), 1200000, 2500000, 4000000, 150, 150, 'landed');
+   
 
-
--- Thêm 3 đặt chỗ mới với các trạng thái khác nhau
--- Đặt chỗ 1: Đã hoàn thành (của chuyến bay trong quá khứ)
-INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
-(101, 2, (SELECT id FROM flights WHERE flight_number = 'SA20'), 'SACOMP', datetime('now', '-12 days'), 2, 'Phổ thông', 2400000, 150000, 2550000, 'momo', 'paid', 'completed');
-
--- Đặt chỗ 2: Đã xác nhận (của chuyến bay sắp tới)
-INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
-(102, 3, (SELECT id FROM flights WHERE flight_number = 'SA1'), 'SACONF', datetime('now', '-2 days'), 1, 'Thương gia', 3000000, 0, 3000000, 'vnpay', 'paid', 'confirmed');
-
--- Đặt chỗ 3: Chờ thanh toán (của chuyến bay sắp tới)
-INSERT INTO bookings (id, user_id, flight_id, booking_code, booking_time, num_adults, seat_class_booked, base_fare, ancillary_services_total, total_amount, payment_method, payment_status, status) VALUES
-(103, 2, (SELECT id FROM flights WHERE flight_number = 'SA3'), 'SAPEND', datetime('now', '-1 hours'), 1, 'Phổ thông', 1100000, 0, 1100000, NULL, 'pending', 'pending_payment');
-
--- Thêm hành khách cho các đặt chỗ tương ứng
-INSERT INTO passengers (booking_id, full_name, first_name, last_name, passenger_type) VALUES
-(101, 'Nguyễn Văn An', 'An', 'Nguyễn Văn', 'adult'),
-(101, 'Lê Thị Cúc', 'Cúc', 'Lê Thị', 'adult'),
-(102, 'Trần Thị Bình', 'Bình', 'Trần Thị', 'adult'),
-(103, 'Nguyễn Văn An', 'An', 'Nguyễn Văn', 'adult');
-
--- Thêm dịch vụ và suất ăn cho các đặt chỗ để test báo cáo
--- Dịch vụ hành lý cho booking 101
-INSERT INTO booking_ancillary_services (booking_id, ancillary_service_id, price_at_booking) VALUES
-(101, (SELECT id FROM ancillary_services WHERE name LIKE '%Hành lý%'), 150000);
--- Suất ăn cho booking 102
-INSERT INTO booking_menu_items (booking_id, menu_item_id, price_at_booking) VALUES
-(102, (SELECT id FROM menu_items WHERE name LIKE '%Mì Ý%'), 150000);
 
 
 
