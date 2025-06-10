@@ -293,7 +293,7 @@ def create_booking_api():
             num_adults=data['num_adults'],
             num_children=data['num_children'],
             num_infants=data.get('num_infants', 0),
-            payment_method=data['payment_method'],
+            payment_method=data.get('payment_method', 'online'),
             ancillary_services_cost=ancillary_cost # << TRUYỀN VÀO MODEL
         )
         session['booking_id_to_pay'] = booking_result['booking_id']
@@ -352,19 +352,30 @@ def add_menu_items_to_booking_api(booking_id):
         return jsonify({"success": False, "message": "Dữ liệu không hợp lệ."}), 400
     
     try:
-        success, message = booking_model.add_menu_items_to_booking(
+        # SỬA LỖI: Đổi tên tham số từ 'selected_items' thành 'items'
+        result = booking_model.add_menu_items_to_booking(
             booking_id=booking_id, 
             user_id=session['user_id'], 
-            selected_items=data['menu_items']
+            items=data['menu_items']
         )
-        if success:
+        
+        # Hàm model bây giờ trả về một dictionary, cần kiểm tra key 'success'
+        if result.get('success'):
             session['booking_id_to_pay'] = booking_id
-            return jsonify({"success": True, "message": message or "Đã thêm dịch vụ. Đang chuyển đến trang thanh toán...", "redirect_url": url_for("client_bp.payment_page_render")}), 200
+            return jsonify({
+                "success": True, 
+                "message": result.get('message', "Đã thêm dịch vụ. Đang chuyển đến trang thanh toán..."), 
+                "redirect_url": url_for("client_bp.payment_page_render")
+            }), 200
         else:
-            return jsonify({"success": False, "message": message or "Không thể thêm suất ăn."}), 400
+            # Trả về thông báo lỗi cụ thể từ model nếu có
+            return jsonify({"success": False, "message": result.get('message', "Không thể thêm suất ăn.")}), 400
+            
     except ValueError as ve:
+        # Bắt lỗi validation từ model (ví dụ: vé đã check-in)
         return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
+        # Bắt các lỗi không mong muốn khác
         current_app.logger.error(f"Lỗi API khi thêm suất ăn cho booking {booking_id}: {e}", exc_info=True)
         return jsonify({"success": False, "message": "Lỗi máy chủ không xác định."}), 500
 
