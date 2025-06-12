@@ -381,33 +381,46 @@ const newsTrack = document.querySelector(".news-track");
 if (newsTrack) {
     const newsItems = newsTrack.querySelectorAll(".news-vertical-item");
     if (newsItems.length > 0) {
-        const visibleCount = 4;
-        const itemHeight = newsItems[0].offsetHeight + 10;
+        const visibleCount = 4; // Số tin hiển thị/clone trên desktop
+        const itemHeight = newsItems[0].offsetHeight + 10; // Chiều cao mỗi tin + margin
         const totalNewsItems = newsItems.length;
-        for (let i = 0; i < Math.min(visibleCount, totalNewsItems); i++) {
-            const clone = newsItems[i].cloneNode(true);
-            newsTrack.appendChild(clone);
+
+        // Chỉ clone và chạy cuộn tự động trên desktop
+        if (window.innerWidth > 768) {
+            for (let i = 0; i < Math.min(visibleCount, totalNewsItems); i++) {
+                const clone = newsItems[i].cloneNode(true);
+                newsTrack.appendChild(clone);
+            }
+            let newsIndex = 0;
+            let allowNewsTransition = true;
+            function updateNewsScroll() {
+                newsTrack.style.transition = allowNewsTransition ? "transform 0.6s ease-in-out" : "none";
+                newsTrack.style.transform = `translateY(-${newsIndex * itemHeight}px)`;
+            }
+            if (totalNewsItems > visibleCount) {
+                setInterval(() => {
+                    newsIndex++;
+                    allowNewsTransition = true;
+                    updateNewsScroll();
+                    if (newsIndex === totalNewsItems) {
+                        setTimeout(() => {
+                            allowNewsTransition = false;
+                            newsIndex = 0;
+                            updateNewsScroll();
+                        }, 650); // Delay để chuyển mượt
+                    }
+                }, 5000); // Cuộn mỗi 5 giây
+            }
+            updateNewsScroll();
+        } else {
+            // Trên mobile, hiển thị 3 tin gốc, không cuộn tự động
+            newsTrack.innerHTML = ''; // Xóa tất cả nội dung hiện tại
+            for (let i = 0; i < Math.min(3, totalNewsItems); i++) {
+                newsTrack.appendChild(newsItems[i].cloneNode(true));
+            }
+            // Vô hiệu hóa cuộn và đặt lại vị trí
+            newsTrack.style.transform = 'translateY(0)';
+            newsTrack.style.transition = 'none';
         }
-        let newsIndex = 0;
-        let allowNewsTransition = true;
-        function updateNewsScroll() {
-            newsTrack.style.transition = allowNewsTransition ? "transform 0.6s ease-in-out" : "none";
-            newsTrack.style.transform = `translateY(-${newsIndex * itemHeight}px)`;
-        }
-        if (totalNewsItems > visibleCount) {
-            setInterval(() => {
-                newsIndex++;
-                allowNewsTransition = true;
-                updateNewsScroll();
-                if (newsIndex === totalNewsItems) {
-                    setTimeout(() => {
-                        allowNewsTransition = false;
-                        newsIndex = 0;
-                        updateNewsScroll();
-                    }, 650);
-                }
-            }, 5000);
-        }
-        updateNewsScroll();
     }
 }

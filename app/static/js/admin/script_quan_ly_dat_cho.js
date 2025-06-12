@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', function() {
     let allBookingsData = [];
     let currentEditingBookingId = null;
 
+    let currentSortColumn = 'created_at_formatted'; // Mặc định sắp xếp theo ngày tạo
+    let currentSortDirection = 'desc'; // Mặc định giảm dần (mới nhất lên đầu)
+
     const statusMapping = {
         "confirmed": { text: "Đã xác nhận", class: "status-confirmed" },
         "pending_payment": { text: "Chờ thanh toán", class: "status-pending_payment" },
@@ -43,20 +46,98 @@ document.addEventListener('DOMContentLoaded', function() {
         return (amount || 0).toLocaleString('vi-VN', { style: 'currency', currency: 'VND' });
     }
 
-    async function fetchBookings(searchTerm = '', statusTerm = '', dateTerm = '') {
-        let apiUrl = `/admin/api/bookings?search=${encodeURIComponent(searchTerm)}&status=${encodeURIComponent(statusTerm)}&flightDate=${encodeURIComponent(dateTerm)}`;
-        try {
-            const response = await fetch(apiUrl);
-            const data = await response.json();
-            if (data.success) {
-                allBookingsData = data.bookings;
-                renderBookingsTable(allBookingsData);
+    function updateSortIcons() {
+        document.querySelectorAll('#bookingsTable th[data-sort-by]').forEach(th => {
+            const icon = th.querySelector('i.fas');
+            if (!icon) return;
+            icon.classList.remove('fa-sort-up', 'fa-sort-down');
+            
+            if (th.dataset.sortBy === currentSortColumn) {
+                icon.classList.add(currentSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
             } else {
-                bookingsTableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">${data.message || 'Lỗi tải dữ liệu.'}</td></tr>`;
+                icon.classList.add('fa-sort');
+            }
+        });
+    }
+    
+    function sortData(dataArray, column, direction) {
+        if (!column) return dataArray;
+        const sortedArray = [...dataArray]; 
+        sortedArray.sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+            if (valA === null || valA === undefined) return 1;
+            if (valB === null || valB === undefined) return -1;
+            if (typeof valA === 'string') {
+                return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            if (typeof valA === 'number') {
+                return direction === 'asc' ? valA - valB : valB - valA;
+            }
+            return 0;
+        });
+        return sortedArray;
+    }
+
+    function applyFiltersAndSort() {
+        let filteredBookings = [...allBookingsData];
+
+        // Áp dụng bộ lọc
+        const searchTerm = bookingSearchInput ? bookingSearchInput.value.toLowerCase().trim() : '';
+        const statusTerm = bookingStatusFilter ? bookingStatusFilter.value : '';
+        const dateTerm = flightDateFilter ? flightDateFilter.value : '';
+
+        if (searchTerm) {
+            filteredBookings = filteredBookings.filter(booking =>
+                (booking.pnr || booking.booking_code || '').toLowerCase().includes(searchTerm) ||
+                (booking.passenger_name || '').toLowerCase().includes(searchTerm) ||
+                (booking.email || '').toLowerCase().includes(searchTerm)
+            );
+        }
+        if (statusTerm) {
+            filteredBookings = filteredBookings.filter(booking => booking.booking_status === statusTerm);
+        }
+        if (dateTerm) {
+            filteredBookings = filteredBookings.filter(booking => booking.flight_date === dateTerm);
+        }
+
+        // Áp dụng sắp xếp
+        const sortedAndFiltered = sortData(filteredBookings, currentSortColumn, currentSortDirection);
+        renderBookingsTable(sortedAndFiltered);
+    }
+
+    async function fetchBookings() {
+        console.log(`Fetching all bookings from API...`);
+        try {
+            const response = await fetch('/admin/api/bookings');
+            const data = await response.json();
+            if (data.success && Array.isArray(data.bookings)) {
+                allBookingsData = data.bookings;
+                applyFiltersAndSort(); // Áp dụng sắp xếp mặc định và render
+                updateSortIcons(); // Cập nhật icon cho cột sắp xếp mặc định
+            } else {
+                if(bookingsTableBody) bookingsTableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">${data.message || 'Không tải được dữ liệu đặt chỗ.'}</td></tr>`;
             }
         } catch (error) {
-            bookingsTableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Lỗi kết nối máy chủ.</td></tr>`;
+            if(bookingsTableBody) bookingsTableBody.innerHTML = `<tr><td colspan="9" style="text-align:center;">Lỗi kết nối máy chủ.</td></tr>`;
+            console.error("Error fetching bookings:", error);
         }
+    }
+
+    function addSortEventListeners() {
+        document.querySelectorAll('#bookingsTable th[data-sort-by]').forEach(headerCell => {
+            headerCell.addEventListener('click', () => {
+                const sortKey = headerCell.dataset.sortBy;
+                if (currentSortColumn === sortKey) {
+                    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSortColumn = sortKey;
+                    currentSortDirection = 'desc'; // Mặc định giảm dần khi nhấn cột mới
+                }
+                updateSortIcons(headerCell); // Cập nhật tất cả icon
+                applyFiltersAndSort(); // Sắp xếp và render lại bảng
+            });
+        });
     }
 
     function renderBookingsTable(bookingsToRender) {
@@ -263,6 +344,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (applyBookingFilterBtn) applyBookingFilterBtn.addEventListener('click', filterAndSearchBookings);
-
+    if (applyBookingFilterBtn) {
+        applyBookingFilterBtn.addEventListener('click', applyFiltersAndSort);
+    }
+    if (bookingSearchInput) {
+        bookingSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') applyFiltersAndSort();
+        });
+    }
+    addSortEventListeners(); // Gắn listener cho sắp xếp
     fetchBookings();
 });

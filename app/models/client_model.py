@@ -187,3 +187,18 @@ def delete_user_by_admin(user_id):
     finally:
         if conn:
             conn.close()
+            
+
+def get_new_users_count_24h():
+    """Đếm số lượng người dùng mới đăng ký trong vòng 24 giờ qua."""
+    conn = _get_db_connection()
+    try:
+        query = "SELECT COUNT(id) as count FROM users WHERE created_at >= datetime('now', '-24 hours')"
+        result = conn.execute(query).fetchone()
+        return result['count'] if result else 0
+    except Exception as e:
+        current_app.logger.error(f"Error counting new users: {e}")
+        return 0
+    finally:
+        if conn:
+            conn.close()

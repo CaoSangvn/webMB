@@ -27,6 +27,14 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Lỗi kết nối máy chủ.');
         }
     };
+    const categoryLabels = {
+        baggage:                 "Hành lý",
+        seat_preference:         "Chọn ghế",
+        insurance:               "Bảo hiểm",
+        priority_services:       "Dịch vụ ưu tiên",
+        airport_transfer:        "Đưa đón sân bay",
+        in_flight_entertainment: "Giải trí trên chuyến bay"
+    };
 
     const renderTable = (services) => {
         tableBody.innerHTML = '';
@@ -37,21 +45,36 @@ document.addEventListener('DOMContentLoaded', function() {
         services.forEach(service => {
             const row = document.createElement('tr');
             const description = service.description || '';
+            // Lấy label thân thiện
+            const categoryLabel = categoryLabels[service.category] || service.category;
+
             row.innerHTML = `
                 <td>${service.id}</td>
                 <td>${service.name}</td>
-                <td>${service.category}</td>
+                <td>${categoryLabel}</td>
                 <td>${(service.price_vnd || 0).toLocaleString('vi-VN')}</td>
-                <td title="${description}">${description.substring(0, 40)}${description.length > 40 ? '...' : ''}</td>
-                <td>${service.is_available ? '<span style="color:green; font-weight:bold;">Khả dụng</span>' : '<span style="color:red;">Không</span>'}</td>
+                <td title="${description}">
+                ${description.substring(0, 40)}${description.length > 40 ? '...' : ''}
+                </td>
+                <td>
+                ${ service.is_available
+                    ? '<span style="color:green; font-weight:bold;">Khả dụng</span>'
+                    : '<span style="color:red;">Không</span>'
+                }
+                </td>
                 <td class="btn-action-group">
-                    <button class="btn btn-sm btn-edit-item" data-id="${service.id}"><i class="fas fa-edit"></i> Sửa</button>
-                    <button class="btn btn-sm btn-delete-item" data-id="${service.id}"><i class="fas fa-trash"></i> Xóa</button>
+                    <button class="btn btn-sm btn-edit-item" data-id="${service.id}">
+                    <i class="fas fa-edit"></i> Sửa
+                    </button>
+                    <button class="btn btn-sm btn-delete-item" data-id="${service.id}">
+                    <i class="fas fa-trash"></i> Xóa
+                    </button>
                 </td>
             `;
             tableBody.appendChild(row);
         });
     };
+
     
     const openModal = async (serviceId = null) => {
         serviceForm.reset();

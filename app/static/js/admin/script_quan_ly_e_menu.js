@@ -20,6 +20,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let editingMenuItemId = null;
     let allMenuItems = []; // Để lưu trữ dữ liệu từ API
+    let currentSortColumn = 'id'; // Mặc định sắp xếp theo ID
+    let currentSortDirection = 'asc'; // Mặc định tăng dần
+
 
     const categoryNames = {
         "combo": "Combo",
@@ -27,6 +30,98 @@ document.addEventListener('DOMContentLoaded', function() {
         "do_uong": "Đồ uống",
         "mon_an_vat": "Món ăn vặt"
     };
+
+    // --- CÁC HÀM SẮP XẾP VÀ RENDER MỚI ---
+    function updateSortIcons() {
+        document.querySelectorAll('#eMenuTable th[data-sort-by]').forEach(th => {
+            const icon = th.querySelector('i.fas');
+            if (!icon) return;
+            icon.classList.remove('fa-sort-up', 'fa-sort-down');
+            
+            if (th.dataset.sortBy === currentSortColumn) {
+                icon.classList.add(currentSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+            } else {
+                icon.classList.add('fa-sort');
+            }
+        });
+    }
+    
+    function sortData(dataArray, column, direction) {
+        if (!column) return dataArray;
+
+        return [...dataArray].sort((a, b) => {
+            let valA = a[column];
+            let valB = b[column];
+
+            // 1. NULL / UNDEFINED lên cuối
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+
+            // 2. Nếu là chuỗi, loại bỏ tất cả ký tự không phải chữ số, dấu chấm, dấu trừ
+            if (typeof valA === 'string') {
+            valA = valA
+                .replace(/\./g, '')       // bỏ dấu chấm (điểm) nếu đang dùng "130.000"
+                .replace(/,/g, '')        // bỏ dấu phẩy
+                .replace(/[^\d.-]/g, '')  // bỏ ký tự khác (ví dụ " VND", "$")
+                .trim();
+            }
+            if (typeof valB === 'string') {
+            valB = valB
+                .replace(/\./g, '')
+                .replace(/,/g, '')
+                .replace(/[^\d.-]/g, '')
+                .trim();
+            }
+
+            // 3. parseFloat, nếu NaN thì dùng 0
+            valA = parseFloat(valA) || 0;
+            valB = parseFloat(valB) || 0;
+
+            // 4. so sánh
+            if (direction === 'asc') {
+            return valA - valB;
+            } else {
+            return valB - valA;
+            }
+        });
+        }
+
+
+    function applyFiltersAndSort() {
+        let filteredItems = [...allMenuItems];
+
+        // Áp dụng bộ lọc
+        const searchTerm = menuItemSearchInput ? menuItemSearchInput.value.toLowerCase().trim() : '';
+        const categoryTerm = menuCategoryFilter ? menuCategoryFilter.value : '';
+
+        if (searchTerm) {
+            filteredItems = filteredItems.filter(item => item.name.toLowerCase().includes(searchTerm));
+        }
+        if (categoryTerm) {
+            filteredItems = filteredItems.filter(item => item.category === categoryTerm);
+        }
+        
+        // Áp dụng sắp xếp
+        const sortedAndFiltered = sortData(filteredItems, currentSortColumn, currentSortDirection);
+        renderEMenuTable(sortedAndFiltered);
+    }
+
+    function addSortEventListeners() {
+        document.querySelectorAll('#eMenuTable th[data-sort-by]').forEach(headerCell => {
+            headerCell.style.cursor = 'pointer';
+            headerCell.addEventListener('click', () => {
+                const sortKey = headerCell.dataset.sortBy;
+                if (currentSortColumn === sortKey) {
+                    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSortColumn = sortKey;
+                    currentSortDirection = 'asc'; // Sắp xếp giá và ID thường mặc định tăng dần
+                }
+                updateSortIcons();
+                applyFiltersAndSort();
+            });
+        });
+    }
 
     // --- Helper Functions for Validation ---
     function displayValidationError(inputId, message) {
@@ -83,31 +178,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- FETCH MENU ITEMS FROM API ---
-     async function fetchMenuItems(searchTerm = '', categoryTerm = '') {
-        console.log(`Bắt đầu fetchMenuItems với: search='${searchTerm}', category='${categoryTerm}'`); // DEBUG
-        let apiUrl = '/admin/api/menu-items?';
-        const params = new URLSearchParams();
-        if (searchTerm) params.append('search', searchTerm);
-        if (categoryTerm) params.append('category', categoryTerm);
-        apiUrl += params.toString();
-
+    async function fetchMenuItems() {
         try {
-            const response = await fetch(apiUrl);
-            console.log("Fetch response status:", response.status); // DEBUG
-
+            const response = await fetch('/admin/api/menu-items');
             const data = await response.json();
-            console.log("Dữ liệu nhận được từ API E-Menu:", data); // DEBUG
-
             if (data.success && Array.isArray(data.menu_items)) {
-                allMenuItems = data.menu_items; // Lưu dữ liệu
-                renderEMenuTable(allMenuItems); // Gọi hàm render
+                allMenuItems = data.menu_items;
+                applyFiltersAndSort();
             } else {
-                console.error("API không trả về dữ liệu thành công:", data.message);
-                if(eMenuTableBody) eMenuTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;">${data.message || 'Không tải được dữ liệu E-Menu.'}</td></tr>`;
+                if(eMenuTableBody) eMenuTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;">${data.message || 'Không tải được dữ liệu.'}</td></tr>`;
             }
         } catch (error) {
-            console.error("Lỗi trong khối catch của fetchMenuItems:", error);
-            if(eMenuTableBody) eMenuTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Lỗi kết nối máy chủ khi tải E-Menu.</td></tr>`;
+            if(eMenuTableBody) eMenuTableBody.innerHTML = `<tr><td colspan="8" style="text-align:center;">Lỗi kết nối máy chủ.</td></tr>`;
+            console.error("Error fetching menu items:", error);
         }
     }
 
@@ -375,6 +458,16 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (applyMenuItemFilterBtn) applyMenuItemFilterBtn.addEventListener('click', filterAndSearchMenuItems);
+    if (applyMenuItemFilterBtn) {
+        applyMenuItemFilterBtn.addEventListener('click', applyFiltersAndSort);
+    }
+     // Optional: dynamic filtering on input/change
+    if (menuItemSearchInput) {
+        menuItemSearchInput.addEventListener('input', applyFiltersAndSort);
+    }
+    if (menuCategoryFilter) {
+        menuCategoryFilter.addEventListener('change', applyFiltersAndSort);
+    }
     if (menuItemSearchInput) {
         menuItemSearchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') filterAndSearchMenuItems();
@@ -383,5 +476,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (menuCategoryFilter) menuCategoryFilter.addEventListener('change', filterAndSearchMenuItems);
     
     // --- Khởi tạo ban đầu ---
+    addSortEventListeners();
     fetchMenuItems(); // Tải danh sách món ăn từ API khi trang được load
+    updateSortIcons();
 });

@@ -15,7 +15,8 @@ from app.models import (
     menu_item_model,
     notification_model,
     settings_model,
-    ancillary_service_model
+    ancillary_service_model,
+    stats_model
 )
 from app.models.flight_model import combine_datetime_str
 from app.models.menu_item_model import serialize_menu_item
@@ -79,9 +80,10 @@ def quan_ly_e_menu():
 def quan_ly_dich_vu():
     return render_template('quan_ly_dich_vu.html')
 
-#@admin_bp.route('/reports')
-#@admin_required
-##return render_template('bao_cao_thong_ke.html')
+@admin_bp.route('/reports-statistics')
+@admin_required
+def bao_cao_thong_ke():
+    return render_template('admin/bao_cao_thong_ke.html') # Đảm bảo tên file khớp
     
 # --- ================================== ---
 # ---           CÁC API CHO ADMIN        ---
@@ -547,10 +549,10 @@ def api_admin_delete_service(service_id):
         return jsonify({"success": False, "message": str(ve)}), 400
     except Exception as e:
         return jsonify({"success": False, "message": "Lỗi máy chủ."}), 500
+    
 @admin_bp.route('/api/dashboard/stats', methods=['GET'])
 @admin_required
 def api_get_dashboard_stats():
-    """API để lấy các số liệu thống kê nhanh cho trang dashboard."""
     try:
         stats = {
             'upcoming_flights': flight_model.get_upcoming_flights_count(),
@@ -558,9 +560,42 @@ def api_get_dashboard_stats():
             'new_users_24h': client_model.get_new_users_count_24h(),
             'monthly_revenue': booking_model.get_monthly_revenue()
         }
-        return jsonify({"success": True, "stats": stats})
+        return jsonify({"success": True, "stats": stats}), 200
     except Exception as e:
-        current_app.logger.error(f"API Error getting dashboard stats: {e}", exc_info=True)
-        return jsonify({"success": False, "message": "Lỗi khi tải dữ liệu thống kê."}), 500
-from datetime import datetime, timedelta # Đảm bảo đã import ở đầu tệp
+        current_app.logger.error(f"Admin API: Error fetching dashboard stats: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ khi lấy dữ liệu thống kê."}), 500
 
+
+
+# --- STATISTICS API FOR ADMIN ---
+@admin_bp.route('/api/stats', methods=['GET'])
+@admin_required
+def api_admin_get_stats():
+    date_range_key = request.args.get('range', 'last30days') # Mặc định 30 ngày qua
+    end_date = datetime.now()
+    if date_range_key == 'today':
+        start_date = end_date
+    elif date_range_key == 'last7days':
+        start_date = end_date - timedelta(days=6)
+    elif date_range_key == 'this_month':
+        start_date = end_date.replace(day=1)
+    else: # Mặc định là last30days
+        start_date = end_date - timedelta(days=29)
+
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    
+    try:
+        overview_stats = stats_model.get_overview_stats(start_date_str, end_date_str)
+        booking_status_data = stats_model.get_booking_status_chart_data(start_date_str, end_date_str)
+        top_routes_data = stats_model.get_top_routes_data(start_date_str, end_date_str)
+
+        return jsonify({
+            "success": True,
+            "overview": overview_stats,
+            "bookingStatusChart": booking_status_data,
+            "topRoutes": top_routes_data
+        }), 200
+    except Exception as e:
+        current_app.logger.error(f"Admin API: Error fetching statistics: {e}", exc_info=True)
+        return jsonify({"success": False, "message": "Lỗi máy chủ khi lấy dữ liệu thống kê."}), 500

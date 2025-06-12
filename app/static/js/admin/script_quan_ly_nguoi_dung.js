@@ -16,6 +16,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let editingUserId = null;
     let allUsersData = []; // Để lưu trữ dữ liệu người dùng từ API
+    let currentSortColumn = 'id'; // Mặc định sắp xếp theo ID
+    let currentSortDirection = 'asc'; // Mặc định tăng dần
+
 
     // Mapping trạng thái (giữ nguyên)
     const statusUserMapping = {
@@ -23,6 +26,83 @@ document.addEventListener('DOMContentLoaded', function() {
         "locked": { text: "Bị khóa", class: "status-locked" },
         "pending": { text: "Chờ kích hoạt", class: "status-pending" }
     };
+
+     function updateSortIcons() {
+        document.querySelectorAll('#usersTable th[data-sort-by]').forEach(th => {
+            const icon = th.querySelector('i.fas');
+            if (!icon) return;
+            icon.classList.remove('fa-sort-up', 'fa-sort-down');
+            
+            if (th.dataset.sortBy === currentSortColumn) {
+                icon.classList.add(currentSortDirection === 'asc' ? 'fa-sort-up' : 'fa-sort-down');
+            } else {
+                icon.classList.add('fa-sort');
+            }
+        });
+    }
+    
+    function sortData(dataArray, column, direction) {
+        if (!column) return dataArray;
+        const sortedArray = [...dataArray]; 
+        sortedArray.sort((a, b) => {
+            // Sử dụng key từ mock data của bạn: 'fullName', 'registeredDate', 'status'
+            let valA = a[column];
+            let valB = b[column];
+
+            if (valA === null || valA === undefined) return 1;
+            if (valB === null || valB === undefined) return -1;
+
+            if (typeof valA === 'string') {
+                // Đối với ngày tháng dạng YYYY-MM-DD, so sánh chuỗi là đủ
+                return direction === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+            }
+            if (typeof valA === 'number') {
+                return direction === 'asc' ? valA - valB : valB - valA;
+            }
+            return 0;
+        });
+        return sortedArray;
+    }
+
+    function applyFiltersAndSort() {
+        let filteredUsers = [...allUsersData];
+
+        // Áp dụng bộ lọc (giữ nguyên logic lọc của bạn)
+        const searchTerm = userSearchInput ? userSearchInput.value.toLowerCase().trim() : '';
+        const statusTerm = userStatusFilter ? userStatusFilter.value : '';
+
+        if (searchTerm) {
+            filteredUsers = filteredUsers.filter(user =>
+                (user.fullName && user.fullName.toLowerCase().includes(searchTerm)) ||
+                (user.email && user.email.toLowerCase().includes(searchTerm)) ||
+                (user.phone && user.phone.includes(searchTerm))
+            );
+        }
+        if (statusTerm) {
+            filteredUsers = filteredUsers.filter(user => user.status === statusTerm);
+        }
+
+        // Áp dụng sắp xếp
+        const sortedAndFiltered = sortData(filteredUsers, currentSortColumn, currentSortDirection);
+        renderUsersTable(sortedAndFiltered);
+    }
+
+    function addSortEventListeners() {
+        document.querySelectorAll('#usersTable th[data-sort-by]').forEach(headerCell => {
+            headerCell.style.cursor = 'pointer';
+            headerCell.addEventListener('click', () => {
+                const sortKey = headerCell.dataset.sortBy;
+                if (currentSortColumn === sortKey) {
+                    currentSortDirection = currentSortDirection === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSortColumn = sortKey;
+                    currentSortDirection = 'desc';
+                }
+                updateSortIcons();
+                applyFiltersAndSort();
+            });
+        });
+    }
 
     // --- Helper Functions for Validation (giữ nguyên) ---
     function displayValidationError(inputId, message) { /* ... giữ nguyên ... */ 
@@ -62,30 +142,27 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // --- FETCH USERS FROM API ---
-    async function fetchUsers(searchTerm = '', statusTerm = '') {
+    async function fetchUsers() {
+        const searchTerm = userSearchInput ? userSearchInput.value.trim() : '';
+        const statusTerm = userStatusFilter ? userStatusFilter.value : '';
+        
         let apiUrl = '/admin/api/users?';
         const params = new URLSearchParams();
         if (searchTerm) params.append('search', searchTerm);
         if (statusTerm) params.append('status', statusTerm);
-        // Thêm role filter nếu cần: 
-        // const roleTerm = document.getElementById('userRoleFilter')?.value;
-        // if (roleTerm) params.append('role', roleTerm);
-
         apiUrl += params.toString();
 
         try {
             const response = await fetch(apiUrl);
             const data = await response.json();
-            if (data.success && data.users) {
+            if (data.success && Array.isArray(data.users)) {
                 allUsersData = data.users;
-                renderUsersTable(allUsersData);
+                applyFiltersAndSort();
             } else {
-                usersTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">${data.message || 'Không tải được dữ liệu người dùng.'}</td></tr>`;
-                console.error("Failed to fetch users:", data.message);
+                if(usersTableBody) usersTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">${data.message || 'Không tải được dữ liệu người dùng.'}</td></tr>`;
             }
         } catch (error) {
-            usersTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Lỗi kết nối máy chủ khi tải người dùng.</td></tr>`;
-            console.error("Error fetching users:", error);
+            if(usersTableBody) usersTableBody.innerHTML = `<tr><td colspan="7" style="text-align:center;">Lỗi kết nối máy chủ.</td></tr>`;
         }
     }
 
@@ -349,6 +426,15 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (applyUserFilterBtn) applyUserFilterBtn.addEventListener('click', filterAndSearchUsers);
     // Có thể thêm listener cho 'input' của userSearchInput để tìm kiếm động
+    if (applyUserFilterBtn) applyUserFilterBtn.addEventListener('click', fetchUsers);
+    if (userSearchInput) {
+        userSearchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') fetchUsers();
+        });
+    }
+    // Logic lọc tự động khi thay đổi select
+    if (userStatusFilter) userStatusFilter.addEventListener('change', fetchUsers);
+    
     if (userSearchInput) {
         userSearchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
@@ -359,5 +445,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (userStatusFilter) userStatusFilter.addEventListener('change', filterAndSearchUsers);
     
     // --- Khởi tạo ban đầu ---
-    fetchUsers(); // Tải danh sách người dùng ban đầu từ API
+    addSortEventListeners();
+    fetchUsers();
+    updateSortIcons();
 });

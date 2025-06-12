@@ -809,29 +809,42 @@ def get_booking_stats_in_range(start_date, end_date):
         if conn: conn.close()
 
 def get_new_bookings_count_24h():
-    """Đếm số lượng đặt chỗ được tạo trong vòng 24 giờ qua."""
+    """Đếm số lượng đặt chỗ mới trong vòng 24 giờ qua."""
     conn = _get_db_connection()
     try:
+        # Lấy các đặt chỗ được tạo từ 24 giờ trước đến bây giờ
         query = "SELECT COUNT(id) as count FROM bookings WHERE booking_time >= datetime('now', '-24 hours')"
         result = conn.execute(query).fetchone()
         return result['count'] if result else 0
+    except Exception as e:
+        current_app.logger.error(f"Error counting new bookings: {e}")
+        return 0
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
 
 def get_monthly_revenue():
-    """Tính tổng doanh thu từ các đặt chỗ đã thành công trong tháng hiện tại."""
+    """Tính tổng doanh thu trong tháng hiện tại từ các đặt chỗ đã xác nhận/hoàn thành."""
     conn = _get_db_connection()
     try:
+        # Lấy năm và tháng hiện tại
+        current_month_str = datetime.now().strftime('%Y-%m')
         query = """
-            SELECT SUM(total_amount) as total
-            FROM bookings
-            WHERE status IN ('confirmed', 'paid', 'completed', 'payment_received')
-            AND strftime('%Y-%m', booking_time) = strftime('%Y-%m', 'now', 'localtime')
+            SELECT SUM(total_amount) as revenue 
+            FROM bookings 
+            WHERE status IN ('confirmed', 'completed', 'payment_received') 
+              AND strftime('%Y-%m', booking_time) = ?
         """
-        result = conn.execute(query).fetchone()
-        return result['total'] if result and result['total'] is not None else 0
+        result = conn.execute(query, (current_month_str,)).fetchone()
+        return result['revenue'] if result['revenue'] else 0
+    except Exception as e:
+        current_app.logger.error(f"Error calculating monthly revenue: {e}")
+        return 0
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
+            
+            
 def get_revenue_by_day(start_date, end_date):
     conn = _get_db_connection()
     try:

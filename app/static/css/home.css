@@ -378,15 +378,14 @@
 }
 .promo-list {
   display: flex;
-  gap: 20px;
+  gap: 30px;
   flex-wrap: wrap;
   justify-content: center;
 }
 .promo-card {
-  background: #fff8eb;
-  border-radius: 10px;
+  background-color: #FFFFFF;
   /* Tăng cường box-shadow để nổi bật hơn */
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
   padding: 15px;
   text-align: center;
   max-width: 300px;
@@ -469,38 +468,151 @@
   text-overflow: hidden;
 }
 
+/* === TIN TỨC === */
+.news-section {
+  background-size: cover;
+  background-position: center;
+  padding: 50px 0;
+}
+
+.news-vertical-carousel {
+  max-width: 100%;
+  height: 420px; /* Giữ nguyên cho desktop với cuộn tự động */
+  overflow: hidden; /* Giữ cho cuộn tự động */
+  margin: 0 auto;
+  display: flex;
+  justify-content: center;
+  position: relative;
+}
+
+.news-track {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.6s ease-in-out;
+}
+
+.news-vertical-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  width: 50vw;
+  padding: 20px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.07);
+  margin-bottom: 10px;
+  box-sizing: border-box;
+  min-height: 130px;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.news-vertical-item img {
+  width: 160px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 6px;
+}
+
+.news-vertical-item .text {
+  flex: 1; /* Phân bổ không gian cho văn bản */
+}
+
+.news-vertical-item .text h4 {
+  font-size: 1.1rem;
+  color: #d21616;
+  margin-bottom: 6px;
+}
+
+.news-vertical-item .text p {
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.5;
+  text-overflow: hidden;
+}
+
+/* Responsive cho news-section */
 @media (max-width: 768px) {
   .news-vertical-carousel {
-    height: 470px; /* tăng chút nếu cần */
+    height: auto; /* Loại bỏ chiều cao cố định để hiển thị 3 tin */
+    overflow: visible; /* Không cuộn, hiển thị tất cả */
     padding: 0 10px;
+    min-height: 400px; /* Đủ để hiển thị 3 tin */
   }
 
   .news-vertical-item {
     flex-direction: column;
-    width: 90vw; /* gần full mobile */
-    padding: 15px;
-    gap: 12px;
-    min-height: auto;
+    width: 90vw;
+    padding: 10px;
+    gap: 10px;
+    min-height: 160px; /* Đảm bảo chứa cả văn bản */
+    align-items: center;
   }
 
   .news-vertical-item img {
     width: 100%;
     height: auto;
+    max-height: 100px;
+  }
+
+  .news-vertical-item .text {
+    width: 100%;
+    text-align: center;
   }
 
   .news-vertical-item .text h4 {
-    font-size: 1rem;
-    text-align: center;
+    font-size: 0.95rem;
+    margin-bottom: 4px;
   }
 
   .news-vertical-item .text p {
-    font-size: 0.9rem;
-    text-align: justify;
+    font-size: 0.85rem;
+    text-align: center;
+    max-height: 3.4em; /* 2 dòng đầy đủ */
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin: 0;
   }
 
   .news-section .section-title {
-    font-size: 1.3rem;
+    font-size: 1.5rem;
     text-align: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .news-vertical-carousel {
+    min-height: 350px; /* Điều chỉnh để hiển thị 3 tin */
+    padding: 0 5px;
+  }
+
+  .news-vertical-item {
+    padding: 8px;
+    gap: 8px;
+    min-height: 140px;
+  }
+
+  .news-vertical-item img {
+    max-height: 90px;
+  }
+
+  .news-vertical-item .text h4 {
+    font-size: 0.9rem;
+  }
+
+  .news-vertical-item .text p {
+    font-size: 0.8rem;
+    max-height: 2.4em; /* 1.5 dòng */
+    line-height: 1.2;
+  }
+
+  .news-section {
+    padding: 20px 0;
+  }
+
+  .news-section .section-title {
+    font-size: 1.5rem;
+    margin: 30px 0 15px 0;
   }
 }
 
@@ -637,7 +749,6 @@
 .destination {
   position: relative;
   overflow: hidden;
-  border-radius: 12px;
   cursor: pointer;
   height: 400px;
   width: 340px;
@@ -658,7 +769,6 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 12px;
   display: block;
 }
 
@@ -979,7 +1089,7 @@
 .section-title::after {
   content: '';
   flex-grow: 1;
-  height: 1px;
+  height: 2px;
   background-color: #dbdbdb; /* Chuyển sang màu xám nhạt hơn, tinh tế hơn */
 }
 

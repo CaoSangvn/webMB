@@ -157,44 +157,42 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // --- HÀM MỚI: SẮP XẾP DỮ LIỆU ---
+    // --- HÀM SẮP XẾP DỮ LIỆU (ĐÃ CẬP NHẬT) ---
     function sortData(dataArray, column, direction) {
-        if (!column) return dataArray; // Không có cột nào để sắp xếp
+        if (!column) return dataArray;
 
-        const sortedArray = [...dataArray]; // Tạo bản sao để không thay đổi mảng gốc
-
-        sortedArray.sort((a, b) => {
+        return [...dataArray].sort((a, b) => {
             let valA = a[column];
             let valB = b[column];
 
-            // Xử lý giá trị null hoặc undefined để chúng luôn ở cuối khi sắp xếp tăng dần
-            if (valA === null || valA === undefined) return 1;
-            if (valB === null || valB === undefined) return -1;
+            // 1. Xử lý flight_number riêng
+            if (column === 'flight_number') {
+            const numA = parseInt((a.flight_number || '').match(/\d+/)?.[0] || 0, 10);
+            const numB = parseInt((b.flight_number || '').match(/\d+/)?.[0] || 0, 10);
+            return direction === 'asc' ? numA - numB : numB - numA;
+            }
 
-            // Xử lý các kiểu dữ liệu khác nhau
+            // 2. Null / undefined
+            if (valA == null && valB == null) return 0;
+            if (valA == null) return 1;
+            if (valB == null) return -1;
+
+            // 3. Kiểu chuỗi
             if (typeof valA === 'string' && typeof valB === 'string') {
-                valA = valA.toLowerCase();
-                valB = valB.toLowerCase();
-            } else if (column.includes('_time') || column.includes('Date')) { 
-                // Ưu tiên sắp xếp theo datetime gốc nếu là cột thời gian
-                // API của chúng ta trả về departure_time, arrival_time là chuỗi ISO 8601
-                // Chuỗi ISO 8601 có thể so sánh trực tiếp như chuỗi.
-                // Nếu không, cần new Date(valA) - new Date(valB)
-            } else if (typeof valA === 'number' && typeof valB === 'number') {
-                // Để nguyên cho so sánh số
+            // loại bỏ khoảng trắng đầu-cuối
+            valA = valA.trim();
+            valB = valB.trim();
+            return direction === 'asc'
+                ? valA.localeCompare(valB, undefined, { numeric: true, sensitivity: 'base' })
+                : valB.localeCompare(valA, undefined, { numeric: true, sensitivity: 'base' });
             }
 
-
-            if (valA < valB) {
-                return direction === 'asc' ? -1 : 1;
-            }
-            if (valA > valB) {
-                return direction === 'asc' ? 1 : -1;
-            }
-            return 0;
+            // 4. Mặc định so sánh số
+            valA = Number(valA);
+            valB = Number(valB);
+            return direction === 'asc' ? valA - valB : valB - valA;
         });
-        return sortedArray;
-    }
+        }
 
     // --- HÀM MỚI: ÁP DỤNG TÌM KIẾM VÀ SẮP XẾP, SAU ĐÓ RENDER ---
     function applySearchAndSort() {
